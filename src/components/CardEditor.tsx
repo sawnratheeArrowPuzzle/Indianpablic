@@ -50,7 +50,7 @@ export const CardEditor: React.FC<CardEditorProps> = ({
   // Auto-generate random ID for student
   const generateNewId = () => {
     const randomNum = Math.floor(10000 + Math.random() * 90000);
-    const newId = `IND-15AUG-${data.year || '2025'}-${randomNum}`;
+    const newId = `IND-15AUG-${data.year || '2026'}-${randomNum}`;
     onChange({ idNumber: newId });
   };
 
@@ -229,7 +229,7 @@ export const CardEditor: React.FC<CardEditorProps> = ({
               type="text"
               value={data.idNumber}
               onChange={(e) => onChange({ idNumber: e.target.value })}
-              placeholder="e.g. IND-15AUG-2025-08765"
+              placeholder="e.g. IND-15AUG-2026-08765"
               className="w-full bg-white border border-amber-900/20 rounded-xl pl-9 pr-3 py-2 text-slate-900 placeholder-slate-400 focus:outline-none focus:border-amber-600 font-mono font-bold shadow-xs"
             />
           </div>
@@ -277,9 +277,9 @@ export const CardEditor: React.FC<CardEditorProps> = ({
               <Calendar className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-amber-800/60" />
               <input
                 type="text"
-                value={data.date || '15 August 2025'}
+                value={data.date || '15 August 2026'}
                 onChange={(e) => onChange({ date: e.target.value })}
-                placeholder="15 August 2025"
+                placeholder="15 August 2026"
                 className="w-full bg-white border border-amber-900/20 rounded-xl pl-9 pr-3 py-2 text-slate-900 font-medium focus:outline-none focus:border-amber-600 shadow-xs"
               />
             </div>

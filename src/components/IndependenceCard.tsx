@@ -150,7 +150,7 @@ export const IndependenceCard: React.FC<IndependenceCardProps> = ({
           <div className="flex items-center justify-center gap-3 my-1.5 px-10">
             <div className="flex-1 h-[2px] bg-gradient-to-r from-transparent via-[#FF9933] to-[#FF9933] rounded-full"></div>
             <span className="font-cinzel font-black text-[21px] sm:text-[23px] text-[#FF8500] tracking-wider px-1">
-              {data.year || '2025'}
+              {data.year || '2026'}
             </span>
             <div className="flex-1 h-[2px] bg-gradient-to-r from-[#138808] via-[#138808] to-transparent rounded-full"></div>
           </div>
@@ -238,7 +238,7 @@ export const IndependenceCard: React.FC<IndependenceCardProps> = ({
               ID NUMBER
             </span>
             <div className="font-montserrat font-bold text-[12px] sm:text-[13.5px] text-[#0F172A] tracking-wider truncate">
-              {data.idNumber || 'IND-15AUG-2025-08765'}
+              {data.idNumber || 'IND-15AUG-2026-08765'}
             </div>
             {/* Decorative Underline with Orange Dot at Right */}
             <div className="relative w-full h-[1.5px] bg-slate-300 mt-0.5">
