@@ -35,21 +35,21 @@ import { BulkStudentGenerator } from './components/BulkStudentGenerator';
 import { AdminPanel } from './components/AdminPanel';
 import { LionEmblemSvg } from './components/LionEmblemSvg';
 import { AshokaChakraSvg } from './components/AshokaChakraSvg';
-import { getSavedRecords, saveUserRecord, deleteUserRecord, syncRecordsWithServer } from './utils/storage';
+import { getSavedRecords, saveUserRecord, deleteUserRecord, clearAllRecords, syncRecordsWithServer } from './utils/storage';
 
 // Default exact 1:1 data matching user reference image
 const DEFAULT_CARD_DATA: StudentData = {
-  id: 'default-sawvan-kumar',
-  name: 'Sawvan Kumar',
-  phone: '9876543210',
+  id: 'default-mr-sawn-kumar',
+  name: 'Mr Sawn Kumar',
+  phone: '9876543897',
   idNumber: 'IND-15AUG-2026-08765',
-  dob: '14 February 2006',
+  dob: '01/01/2007',
   role: 'Proud Citizen',
   date: '15 August 2026',
   place: 'India',
   state: 'Delhi',
   year: '2026',
-  photoUrl: 'https://images.unsplash.com/photo-1539571696357-5a69c17a67c6?w=600&auto=format&fit=crop&q=80',
+  photoUrl: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=600&auto=format&fit=crop&q=80',
   schoolName: 'Kendriya Vidyalaya / Government High School',
   eventTitle: 'INDEPENDENCE DAY',
   eventSubtitle: '15TH AUGUST',
@@ -263,6 +263,11 @@ export default function App() {
     refreshRecords();
   };
 
+  const handleClearAllRecords = () => {
+    clearAllRecords();
+    refreshRecords();
+  };
+
   return (
     <div className="min-h-screen bg-[#FAF7F0] text-slate-900 flex flex-col selection:bg-amber-500 selection:text-white font-poppins">
       {/* 1. NATIONAL TRICOLOR TOP ACCENT LINE */}
@@ -405,8 +410,8 @@ export default function App() {
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
           {/* LEFT: Live Preview Card Display (Cols 1-7 on desktop) */}
           <div className="lg:col-span-7 flex flex-col items-center">
-            {/* Header above Preview */}
-            <div className="w-full flex items-center justify-between mb-2.5 px-1">
+            {/* Header above Preview with Quick Theme Selector */}
+            <div className="w-full flex flex-col sm:flex-row sm:items-center justify-between gap-2 mb-3 px-1">
               <div className="flex items-center space-x-2">
                 <span className="text-xs font-bold text-[#0B1E36] uppercase tracking-wider flex items-center">
                   <span className="w-2.5 h-2.5 rounded-full bg-emerald-600 mr-2 animate-pulse" />
@@ -414,8 +419,52 @@ export default function App() {
                 </span>
               </div>
 
-              <div className="text-[11px] font-medium text-slate-500">
-                Scale: 100% (High Res 300+ DPI)
+              {/* 4 Card Themes Switcher */}
+              <div className="flex items-center space-x-1 bg-amber-100/60 p-1 rounded-xl border border-amber-900/15">
+                <button
+                  type="button"
+                  onClick={() => handleUpdate({ theme: 'independence_day' })}
+                  className={`px-2.5 py-1 rounded-lg text-[11px] font-bold transition-all ${
+                    !cardData.theme || cardData.theme === 'independence_day'
+                      ? 'bg-white text-[#0B1E36] shadow-xs border border-amber-300'
+                      : 'text-slate-600 hover:text-slate-900'
+                  }`}
+                >
+                  🇮🇳 Classic
+                </button>
+                <button
+                  type="button"
+                  onClick={() => handleUpdate({ theme: 'royal_gold' })}
+                  className={`px-2.5 py-1 rounded-lg text-[11px] font-bold transition-all ${
+                    cardData.theme === 'royal_gold'
+                      ? 'bg-gradient-to-r from-amber-500 to-orange-500 text-white shadow-xs border border-amber-600'
+                      : 'text-slate-600 hover:text-slate-900'
+                  }`}
+                >
+                  👑 Royal Tiranga
+                </button>
+                <button
+                  type="button"
+                  onClick={() => handleUpdate({ theme: 'modern_digital' })}
+                  className={`px-2.5 py-1 rounded-lg text-[11px] font-bold transition-all ${
+                    cardData.theme === 'modern_digital'
+                      ? 'bg-blue-600 text-white shadow-xs'
+                      : 'text-slate-600 hover:text-slate-900'
+                  }`}
+                >
+                  ⚡ Modern
+                </button>
+                <button
+                  type="button"
+                  onClick={() => handleUpdate({ theme: 'vintage_khadi' })}
+                  className={`px-2.5 py-1 rounded-lg text-[11px] font-bold transition-all ${
+                    cardData.theme === 'vintage_khadi'
+                      ? 'bg-[#EFE6D5] text-[#4A2810] shadow-xs border border-[#8C6239]'
+                      : 'text-slate-600 hover:text-slate-900'
+                  }`}
+                >
+                  📜 Vintage
+                </button>
               </div>
             </div>
 
@@ -503,6 +552,7 @@ export default function App() {
           }, 300);
         }}
         onDeleteRecord={handleDeleteRecord}
+        onClearAllRecords={handleClearAllRecords}
       />
 
       {/* 5. BULK MULTI-STUDENT MODAL */}

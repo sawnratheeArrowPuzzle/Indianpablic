@@ -1,4 +1,11 @@
-export type CardTheme = 'independence_day' | 'school_id' | 'republic_day' | 'sports_cultural';
+export type CardTheme = 
+  | 'independence_day' 
+  | 'royal_gold' 
+  | 'modern_digital' 
+  | 'vintage_khadi' 
+  | 'school_id' 
+  | 'republic_day' 
+  | 'sports_cultural';
 
 export interface StudentData {
   id: string;

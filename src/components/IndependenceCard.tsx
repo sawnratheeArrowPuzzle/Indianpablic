@@ -7,6 +7,9 @@ import { AzadiMahotsavSvg } from './AzadiMahotsavSvg';
 import { ProudIndianBadge } from './ProudIndianBadge';
 import { IndianMonumentsSilhouette } from './IndianMonumentsSilhouette';
 import { formatMaskedPhone } from '../utils/storage';
+import { CardThemeRoyalGold } from './CardThemeRoyalGold';
+import { CardThemeModernDigital } from './CardThemeModernDigital';
+import { CardThemeVintageHeritage } from './CardThemeVintageHeritage';
 
 interface IndependenceCardProps {
   data: StudentData;
@@ -21,6 +24,18 @@ export const IndependenceCard: React.FC<IndependenceCardProps> = ({
   className = '',
   isPrintMode = false,
 }) => {
+  if (data.theme === 'royal_gold') {
+    return <CardThemeRoyalGold data={data} cardRef={cardRef} className={className} isPrintMode={isPrintMode} />;
+  }
+
+  if (data.theme === 'modern_digital') {
+    return <CardThemeModernDigital data={data} cardRef={cardRef} className={className} isPrintMode={isPrintMode} />;
+  }
+
+  if (data.theme === 'vintage_khadi') {
+    return <CardThemeVintageHeritage data={data} cardRef={cardRef} className={className} isPrintMode={isPrintMode} />;
+  }
+
   return (
     <div
       ref={cardRef}
@@ -91,16 +106,16 @@ export const IndependenceCard: React.FC<IndependenceCardProps> = ({
       </div>
 
       {/* 2. TOP HEADER SECTION */}
-      <div className="relative pt-4 px-6 z-20">
+      <div className="relative pt-2.5 px-6 z-20">
         {/* Top Header Row: Center Emblem + Right Azadi Ka Amrit Mahotsav Logo */}
         <div className="flex items-start justify-between relative pl-8">
           {/* Invisible spacer for left balance */}
-          <div className="w-12 h-6"></div>
+          <div className="w-12 h-4"></div>
 
           {/* Center: Tricolor Ribbon Wings with Ashoka Chakra in Center */}
-          <div className="flex flex-col items-center justify-center -mt-1">
+          <div className="flex flex-col items-center justify-center -mt-1.5">
             <div className="relative flex items-center justify-center">
-              <svg width="150" height="42" viewBox="0 0 150 42" fill="none" xmlns="http://www.w3.org/2000/svg">
+              <svg width="140" height="38" viewBox="0 0 150 42" fill="none" xmlns="http://www.w3.org/2000/svg">
                 {/* Saffron Arch Wings */}
                 <path
                   d="M10 24 C35 6 60 14 75 18 C90 14 115 6 140 24 C120 12 95 18 75 22 C55 18 30 12 10 24 Z"
@@ -120,44 +135,44 @@ export const IndependenceCard: React.FC<IndependenceCardProps> = ({
                 />
               </svg>
               {/* Blue Ashoka Chakra in Center */}
-              <div className="absolute top-1 left-1/2 -translate-x-1/2">
-                <AshokaChakraSvg size={23} color="#000080" />
+              <div className="absolute top-0.5 left-1/2 -translate-x-1/2">
+                <AshokaChakraSvg size={21} color="#000080" />
               </div>
             </div>
           </div>
 
-          {/* Right: 75 Azadi Ka Amrit Mahotsav Logo */}
-          <div className="flex justify-end -mt-1">
-            <AzadiMahotsavSvg size={82} />
+          {/* Right: 80 Azadi Ka Amrit Mahotsav Logo */}
+          <div className="flex justify-end -mt-1.5">
+            <AzadiMahotsavSvg size={76} yearNumber="80" />
           </div>
         </div>
 
         {/* 3. HEADLINE: 15TH AUGUST INDEPENDENCE DAY */}
-        <div className="text-center mt-0.5">
+        <div className="text-center -mt-0.5">
           {/* "15TH AUGUST" */}
-          <h1 className="font-cinzel text-[34px] sm:text-[38px] font-black tracking-wide text-[#0B1E36] leading-none flex items-center justify-center">
+          <h1 className="font-cinzel text-[30px] sm:text-[34px] font-black tracking-wide text-[#0B1E36] leading-none flex items-center justify-center">
             <span>15</span>
-            <span className="text-[20px] sm:text-[22px] font-bold align-super -mt-3.5 mx-0.5 font-cinzel">TH</span>
+            <span className="text-[18px] sm:text-[20px] font-bold align-super -mt-2.5 mx-0.5 font-cinzel">TH</span>
             <span className="ml-1.5">AUGUST</span>
           </h1>
 
           {/* "INDEPENDENCE DAY" */}
-          <h2 className="font-montserrat text-[17px] sm:text-[19px] font-extrabold tracking-[0.24em] text-[#065F46] mt-1 uppercase">
+          <h2 className="font-montserrat text-[15px] sm:text-[17px] font-extrabold tracking-[0.22em] text-[#065F46] mt-0.5 uppercase">
             {data.eventTitle || 'INDEPENDENCE DAY'}
           </h2>
 
-          {/* Decorative Divider with YEAR (e.g. 2025 / 2026) */}
-          <div className="flex items-center justify-center gap-3 my-1.5 px-10">
+          {/* Decorative Divider with YEAR (e.g. 2026) */}
+          <div className="flex items-center justify-center gap-3 my-1 px-10">
             <div className="flex-1 h-[2px] bg-gradient-to-r from-transparent via-[#FF9933] to-[#FF9933] rounded-full"></div>
-            <span className="font-cinzel font-black text-[21px] sm:text-[23px] text-[#FF8500] tracking-wider px-1">
+            <span className="font-cinzel font-black text-[19px] sm:text-[21px] text-[#FF8500] tracking-wider px-1 leading-none">
               {data.year || '2026'}
             </span>
             <div className="flex-1 h-[2px] bg-gradient-to-r from-[#138808] via-[#138808] to-transparent rounded-full"></div>
           </div>
 
           {/* Navy Blue Banner Ribbon: CERTIFICATE OF PARTICIPATION */}
-          <div className="relative inline-block w-[92%] my-1">
-            <div className="relative bg-[#0D254C] text-white py-1 px-6 shadow-md mx-3">
+          <div className="relative inline-block w-[92%] my-0.5">
+            <div className="relative bg-[#0D254C] text-white py-0.5 px-6 shadow-md mx-3">
               {/* Swallowtail cut on Left */}
               <div
                 className="absolute top-0 -left-3 w-3 h-full bg-[#0D254C]"
@@ -172,7 +187,7 @@ export const IndependenceCard: React.FC<IndependenceCardProps> = ({
                   clipPath: 'polygon(0 0, 0 100%, 100% 50%)',
                 }}
               />
-              <p className="font-montserrat font-bold text-[11px] sm:text-[12.5px] tracking-[0.2em] text-white uppercase text-center">
+              <p className="font-montserrat font-bold text-[10px] sm:text-[11.5px] tracking-[0.2em] text-white uppercase text-center">
                 {data.bannerText || 'CERTIFICATE OF PARTICIPATION'}
               </p>
             </div>
@@ -180,20 +195,19 @@ export const IndependenceCard: React.FC<IndependenceCardProps> = ({
         </div>
       </div>
 
-      {/* 4. MAIN BODY: STUDENT PHOTO & DATA FIELDS */}
-      <div className="relative px-6 pt-3 pb-2 z-20 grid grid-cols-12 gap-4 items-start">
+      {/* 4. MAIN BODY: STUDENT PHOTO & DATA FIELDS - POSITIONED HIGHER UP */}
+      <div className="relative px-6 pt-1 pb-1 z-20 grid grid-cols-12 gap-4 items-center">
         {/* Left Column (Cols 1-5): Student Photo Card */}
         <div className="col-span-5 flex flex-col items-center">
           <div className="relative w-full aspect-[4/5] rounded-2xl overflow-hidden bg-gradient-to-b from-slate-100 to-slate-200 border-2 border-white/90 shadow-[0_8px_20px_rgba(0,0,0,0.18)]">
             <img
-              src={data.photoUrl}
-              alt={data.name}
+              src={data.photoUrl || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=600&auto=format&fit=crop&q=80'}
+              alt={data.name || 'Citizen'}
               className="w-full h-full object-cover object-center"
               onError={(e) => {
-                // Fallback avatar if custom image fails
                 (e.target as HTMLElement).setAttribute(
                   'src',
-                  'https://images.unsplash.com/photo-1539571696357-5a69c17a67c6?w=600&auto=format&fit=crop&q=80'
+                  'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=600&auto=format&fit=crop&q=80'
                 );
               }}
             />
@@ -202,15 +216,15 @@ export const IndependenceCard: React.FC<IndependenceCardProps> = ({
           </div>
         </div>
 
-        {/* Right Column (Cols 6-12): Student Metadata Fields */}
-        <div className="col-span-7 flex flex-col justify-between space-y-1.5 pt-0.5">
+        {/* Right Column (Cols 6-12): Metadata Fields exactly matching the photo */}
+        <div className="col-span-7 flex flex-col justify-between space-y-1.5 pt-0">
           {/* FIELD 1: NAME */}
           <div className="relative">
-            <span className="block font-montserrat text-[9px] sm:text-[9.5px] font-extrabold tracking-wider text-[#065F46] uppercase leading-tight">
+            <span className="block font-montserrat text-[8.5px] sm:text-[9px] font-extrabold tracking-wider text-[#065F46] uppercase leading-tight">
               NAME
             </span>
-            <div className="font-montserrat font-bold text-[16px] sm:text-[19px] text-[#0B1E36] leading-tight tracking-tight truncate">
-              {data.name || 'Sawvan Kumar'}
+            <div className="font-montserrat font-bold text-[15px] sm:text-[17px] text-[#0B1E36] leading-tight tracking-tight truncate">
+              {data.name || 'Mr Sawn Kumar'}
             </div>
             {/* Decorative Underline with Orange Dot at Right */}
             <div className="relative w-full h-[1.5px] bg-slate-300 mt-0.5">
@@ -218,12 +232,12 @@ export const IndependenceCard: React.FC<IndependenceCardProps> = ({
             </div>
           </div>
 
-          {/* FIELD 2: MOBILE NO. (Masked 6 digits: XXXXXX6789) */}
+          {/* FIELD 2: MOBILE / PHONE NUMBER */}
           <div className="relative">
-            <span className="block font-montserrat text-[9px] sm:text-[9.5px] font-extrabold tracking-wider text-[#065F46] uppercase leading-tight">
+            <span className="block font-montserrat text-[8.5px] sm:text-[9px] font-extrabold tracking-wider text-[#065F46] uppercase leading-tight">
               MOBILE NO.
             </span>
-            <div className="font-montserrat font-bold text-[12px] sm:text-[13.5px] text-[#0F172A] tracking-wider font-mono">
+            <div className="font-montserrat font-bold text-[11.5px] sm:text-[13px] text-[#0F172A] tracking-wider font-mono truncate">
               {formatMaskedPhone(data.phone)}
             </div>
             {/* Decorative Underline with Green Dot at Right */}
@@ -234,10 +248,10 @@ export const IndependenceCard: React.FC<IndependenceCardProps> = ({
 
           {/* FIELD 3: ID NUMBER */}
           <div className="relative">
-            <span className="block font-montserrat text-[9px] sm:text-[9.5px] font-extrabold tracking-wider text-[#065F46] uppercase leading-tight">
+            <span className="block font-montserrat text-[8.5px] sm:text-[9px] font-extrabold tracking-wider text-[#065F46] uppercase leading-tight">
               ID NUMBER
             </span>
-            <div className="font-montserrat font-bold text-[12px] sm:text-[13.5px] text-[#0F172A] tracking-wider truncate">
+            <div className="font-montserrat font-bold text-[11.5px] sm:text-[13px] text-[#0F172A] tracking-wider truncate">
               {data.idNumber || 'IND-15AUG-2026-08765'}
             </div>
             {/* Decorative Underline with Orange Dot at Right */}
@@ -248,11 +262,11 @@ export const IndependenceCard: React.FC<IndependenceCardProps> = ({
 
           {/* FIELD 4: DOB */}
           <div className="relative">
-            <span className="block font-montserrat text-[9px] sm:text-[9.5px] font-extrabold tracking-wider text-[#065F46] uppercase leading-tight">
+            <span className="block font-montserrat text-[8.5px] sm:text-[9px] font-extrabold tracking-wider text-[#065F46] uppercase leading-tight">
               DOB
             </span>
-            <div className="font-montserrat font-medium text-[12px] sm:text-[13px] text-[#0F172A] truncate">
-              {data.dob || '14 February 2006'}
+            <div className="font-montserrat font-medium text-[11.5px] sm:text-[12.5px] text-[#0F172A] truncate">
+              {data.dob || '01/01/2007'}
             </div>
             {/* Decorative Underline with Green Dot at Right */}
             <div className="relative w-full h-[1.5px] bg-slate-300 mt-0.5">
@@ -260,12 +274,12 @@ export const IndependenceCard: React.FC<IndependenceCardProps> = ({
             </div>
           </div>
 
-          {/* FIELD 5: ROLE / CLASS */}
+          {/* FIELD 5: ROLE */}
           <div className="relative">
-            <span className="block font-montserrat text-[9px] sm:text-[9.5px] font-extrabold tracking-wider text-[#065F46] uppercase leading-tight">
+            <span className="block font-montserrat text-[8.5px] sm:text-[9px] font-extrabold tracking-wider text-[#065F46] uppercase leading-tight">
               ROLE
             </span>
-            <div className="font-montserrat font-semibold text-[12px] sm:text-[13px] text-[#0F172A] truncate">
+            <div className="font-montserrat font-semibold text-[11.5px] sm:text-[12.5px] text-[#0F172A] truncate">
               {data.role || 'Proud Citizen'}
             </div>
             {/* Decorative Underline with Orange Dot at Right */}
@@ -291,7 +305,7 @@ export const IndependenceCard: React.FC<IndependenceCardProps> = ({
               DATE
             </span>
             <div className="font-montserrat font-medium text-[12px] sm:text-[13px] text-[#0F172A] mt-0.5">
-              {data.date || '15 August 2025'}
+              {data.date || '15 August 2026'}
             </div>
             <div className="relative w-full h-[1.5px] bg-slate-300 mt-0.5">
               <div className="absolute right-0 top-1/2 -translate-y-1/2 w-1.5 h-1.5 rounded-full bg-[#FF9933]" />
@@ -396,8 +410,8 @@ export const IndependenceCard: React.FC<IndependenceCardProps> = ({
           <QRCodeSVG
             value={
               data.qrData ||
-              `https://verify.gov.in/cert/${data.idNumber || 'IND-15AUG-2025-08765'}?name=${encodeURIComponent(
-                data.name || 'Sawvan Kumar'
+              `https://verify.gov.in/cert/${data.idNumber || 'IND-15AUG-2026-08765'}?name=${encodeURIComponent(
+                data.name || 'Mr Sawn Kumar'
               )}&phone=${data.phone || ''}&dob=${encodeURIComponent(data.dob || '')}`
             }
             size={24}

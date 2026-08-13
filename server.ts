@@ -21,16 +21,16 @@ if (!fs.existsSync(DATA_DIR)) {
 const DEFAULT_SEED_RECORDS = [
   {
     id: 'rec-seed-1',
-    name: 'Sawvan Kumar',
+    name: 'Mr Sawn Kumar',
     phone: '9876543210',
     idNumber: 'IND-15AUG-2026-08765',
-    dob: '14 February 2006',
+    dob: '01/01/2007',
     role: 'Proud Citizen',
     date: '15 August 2026',
     place: 'India',
     state: 'Delhi',
     year: '2026',
-    photoUrl: 'https://images.unsplash.com/photo-1539571696357-5a69c17a67c6?w=600&auto=format&fit=crop&q=80',
+    photoUrl: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=600&auto=format&fit=crop&q=80',
     schoolName: 'Kendriya Vidyalaya / Government High School',
     eventTitle: 'INDEPENDENCE DAY',
     eventSubtitle: '15TH AUGUST',
@@ -184,7 +184,7 @@ app.post('/api/records', (req, res) => {
   }
 });
 
-// 3. DELETE record
+// 3. DELETE single record
 app.delete('/api/records/:id', (req, res) => {
   try {
     const { id } = req.params;
@@ -192,6 +192,16 @@ app.delete('/api/records/:id', (req, res) => {
     records = records.filter((r) => r.id !== id && r.idNumber !== id);
     writeRecordsToDisk(records);
     return res.json({ success: true, records, total: records.length });
+  } catch (err: any) {
+    return res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+// 3b. DELETE all records (Clear all)
+app.delete('/api/records', (req, res) => {
+  try {
+    writeRecordsToDisk([]);
+    return res.json({ success: true, records: [], total: 0 });
   } catch (err: any) {
     return res.status(500).json({ success: false, error: err.message });
   }

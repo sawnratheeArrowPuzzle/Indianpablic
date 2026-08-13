@@ -160,8 +160,79 @@ export const CardEditor: React.FC<CardEditorProps> = ({
         </div>
       )}
 
+      {/* Card Style Selector (3 New Premium Looks + Classic) */}
+      <div className="mt-3.5 pb-3 border-b border-amber-900/10">
+        <label className="block text-slate-700 font-bold mb-1.5 flex items-center justify-between">
+          <span>Card Style (डिज़ाइन चुनें)</span>
+          <span className="text-[10px] font-normal text-amber-800 bg-amber-100/70 px-2 py-0.5 rounded-full border border-amber-200">
+            4 Premium Looks
+          </span>
+        </label>
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+          <button
+            type="button"
+            onClick={() => onChange({ theme: 'independence_day' })}
+            className={`p-2 rounded-xl border text-left transition-all flex flex-col items-start ${
+              !data.theme || data.theme === 'independence_day'
+                ? 'bg-amber-50 border-amber-500 ring-2 ring-amber-400/50 shadow-xs'
+                : 'bg-white border-slate-200 hover:border-amber-300 text-slate-700'
+            }`}
+          >
+            <span className="text-[11px] font-extrabold text-[#0B1E36] flex items-center gap-1">
+              🇮🇳 Tiranga
+            </span>
+            <span className="text-[9.5px] text-slate-500">क्लासिक तिरंगा</span>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => onChange({ theme: 'royal_gold' })}
+            className={`p-2 rounded-xl border text-left transition-all flex flex-col items-start ${
+              data.theme === 'royal_gold'
+                ? 'bg-gradient-to-r from-amber-50 to-orange-50 text-[#0B1E36] border-[#D4AF37] ring-2 ring-[#D4AF37]/50 shadow-xs'
+                : 'bg-white border-slate-200 hover:border-amber-400 text-slate-700'
+            }`}
+          >
+            <span className="text-[11px] font-extrabold text-[#D97706] flex items-center gap-1">
+              👑 Royal Tiranga
+            </span>
+            <span className="text-[9.5px] text-slate-500">शाही तिरंगा गोल्ड</span>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => onChange({ theme: 'modern_digital' })}
+            className={`p-2 rounded-xl border text-left transition-all flex flex-col items-start ${
+              data.theme === 'modern_digital'
+                ? 'bg-blue-50 text-blue-950 border-blue-600 ring-2 ring-blue-400/50 shadow-xs'
+                : 'bg-white border-slate-200 hover:border-amber-300 text-slate-700'
+            }`}
+          >
+            <span className="text-[11px] font-extrabold text-blue-800 flex items-center gap-1">
+              ⚡ Modern
+            </span>
+            <span className="text-[9.5px] text-slate-500">डिजिटल तिरंगा</span>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => onChange({ theme: 'vintage_khadi' })}
+            className={`p-2 rounded-xl border text-left transition-all flex flex-col items-start ${
+              data.theme === 'vintage_khadi'
+                ? 'bg-[#EFE6D5] text-[#4A2810] border-[#8C6239] ring-2 ring-[#8C6239]/50 shadow-xs'
+                : 'bg-white border-slate-200 hover:border-amber-300 text-slate-700'
+            }`}
+          >
+            <span className="text-[11px] font-extrabold text-[#784A25] flex items-center gap-1">
+              📜 Vintage
+            </span>
+            <span className="text-[9.5px] text-slate-500">हेरिटेज खादी</span>
+          </button>
+        </div>
+      </div>
+
       {/* SINGLE DIRECT FORM - NO TABS (1 2 3 4) */}
-      <form onSubmit={handleSubmit} className="mt-4 space-y-3 text-xs">
+      <form onSubmit={handleSubmit} className="mt-3 space-y-3 text-xs">
         {/* 1. NAME & 2. NUMBER */}
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
           {/* Name */}

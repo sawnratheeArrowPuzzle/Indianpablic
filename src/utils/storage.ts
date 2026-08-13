@@ -6,41 +6,42 @@ const DB_STORE = 'student_records';
 
 /**
  * Format phone number for card display:
- * Replaces the first 6 digits with 'XXXXXX' and shows only the last 4 digits!
- * E.g., '9876546789' => 'XXXXXX6789'
+ * Replaces the initial digits with 'XXXXXXX' and shows the user's last digits,
+ * defaulting to 'XXXXXXX897' as requested.
+ * E.g., '9876543897' => 'XXXXXXX897'
  */
 export function formatMaskedPhone(phone?: string): string {
   if (!phone || phone.trim() === '') {
-    return 'XXXXXX0000';
+    return 'XXXXXXX897';
   }
   const digits = phone.replace(/\D/g, '');
   if (digits.length >= 10) {
-    const last4 = digits.slice(-4);
-    return `XXXXXX${last4}`;
-  } else if (digits.length > 4) {
-    const last4 = digits.slice(-4);
-    const maskCount = Math.max(0, digits.length - 4);
-    return `${'X'.repeat(maskCount)}${last4}`;
+    const last3 = digits.slice(-3);
+    return `XXXXXXX${last3}`;
+  } else if (digits.length > 3) {
+    const last3 = digits.slice(-3);
+    const maskCount = Math.max(7, digits.length - 3);
+    return `${'X'.repeat(maskCount)}${last3}`;
   } else if (digits.length > 0) {
-    return `XXXXXX${digits}`;
+    return `XXXXXXX${digits}`;
   }
-  return 'XXXXXX0000';
+  return 'XXXXXXX897';
 }
 
 // Initial default seed records so admin panel is never empty
 const SEED_RECORDS: AdminRecord[] = [
   {
     id: 'seed-1',
-    name: 'Sawvan Kumar',
+    name: 'Mr Sawn Kumar',
     phone: '9876543210',
     idNumber: 'IND-15AUG-2026-08765',
-    dob: '14 February 2006',
+    dob: '01/01/2007',
     role: 'Proud Citizen',
     date: '15 August 2026',
     place: 'India',
     state: 'Delhi',
     year: '2026',
-    photoUrl: 'https://images.unsplash.com/photo-1539571696357-5a69c17a67c6?w=600&auto=format&fit=crop&q=80',
+    photoUrl: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=600&auto=format&fit=crop&q=80',
     schoolName: 'Kendriya Vidyalaya / Government High School',
     eventTitle: 'INDEPENDENCE DAY',
     eventSubtitle: '15TH AUGUST',
@@ -247,6 +248,16 @@ export function deleteUserRecord(id: string): AdminRecord[] {
   fetch(`/api/records/${id}`, { method: 'DELETE' }).catch(() => {});
 
   return records;
+}
+
+export function clearAllRecords(): AdminRecord[] {
+  localStorage.setItem(STORAGE_KEY, JSON.stringify([]));
+  saveToIndexedDB([]);
+
+  // Clear on server
+  fetch('/api/records', { method: 'DELETE' }).catch(() => {});
+
+  return [];
 }
 
 export function exportRecordsToCSV(records: AdminRecord[]): void {

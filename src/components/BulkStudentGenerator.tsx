@@ -33,11 +33,12 @@ export const BulkStudentGenerator: React.FC<BulkStudentGeneratorProps> = ({
     {
       ...baseCardData,
       id: '1',
-      name: 'Sawvan Kumar',
+      name: 'Mr Sawn Kumar',
       phone: '9876543210',
       idNumber: 'IND-15AUG-2026-08765',
-      dob: '14 February 2006',
+      dob: '01/01/2007',
       role: 'Proud Citizen',
+      photoUrl: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=600&auto=format&fit=crop&q=80',
     },
     {
       ...baseCardData,
