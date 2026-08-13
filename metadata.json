@@ -1,0 +1,6 @@
+{
+  "name": "Independence Day & School ID Card Maker",
+  "description": "Create, customize, and print high-resolution 15th August Independence Day Certificates, School ID Cards, and Event Badges with live preview and bulk generation.",
+  "requestFramePermissions": ["camera"],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

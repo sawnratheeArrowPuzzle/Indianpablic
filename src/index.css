@@ -1,0 +1,43 @@
+@import "tailwindcss";
+
+@layer base {
+  .font-cinzel {
+    font-family: 'Cinzel', serif;
+  }
+  .font-playfair {
+    font-family: 'Playfair Display', serif;
+  }
+  .font-poppins {
+    font-family: 'Poppins', sans-serif;
+  }
+  .font-montserrat {
+    font-family: 'Montserrat', sans-serif;
+  }
+  .font-signature {
+    font-family: 'Great Vibes', cursive;
+  }
+  .font-hindi {
+    font-family: 'Tiro Devanagari Hindi', 'Rozha One', serif;
+  }
+}
+
+@media print {
+  body {
+    background: white !important;
+    color: black !important;
+  }
+  .no-print {
+    display: none !important;
+  }
+  .print-only {
+    display: block !important;
+  }
+  .print-page-break {
+    page-break-after: always;
+    break-after: page;
+  }
+  @page {
+    size: auto;
+    margin: 10mm;
+  }
+}
