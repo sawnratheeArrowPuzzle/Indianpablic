@@ -1,0 +1,10 @@
+# Robots.txt for https://indianpublic.netlify.app
+# Allow all search engine crawlers (Googlebot, Bingbot, etc.)
+User-agent: *
+Allow: /
+
+# Disallow backend internal API routes from being crawled
+Disallow: /api/
+
+# Official Sitemap location for Google Search Console & Search Engines
+Sitemap: https://indianpublic.netlify.app/sitemap.xml

@@ -1,0 +1,34 @@
+{
+  "$schema": "https://firebase.google.com/docs/firestore/blueprint-schema.json",
+  "entities": {
+    "records": {
+      "fields": {
+        "id": { "type": "string", "description": "Unique ID for the card record" },
+        "idNumber": { "type": "string", "description": "Government card registration ID" },
+        "name": { "type": "string", "description": "Full name of the student/citizen" },
+        "phone": { "type": "string", "description": "Contact phone number" },
+        "dob": { "type": "string", "description": "Date of birth" },
+        "role": { "type": "string", "description": "Designation or class role" },
+        "date": { "type": "string", "description": "Card celebration date" },
+        "place": { "type": "string", "description": "City or place" },
+        "state": { "type": "string", "description": "State name" },
+        "year": { "type": "string", "description": "Celebration year" },
+        "photoUrl": { "type": "string", "description": "Photo data URL or image link" },
+        "schoolName": { "type": "string", "description": "Institution or school name" },
+        "eventTitle": { "type": "string", "description": "Event main title" },
+        "eventSubtitle": { "type": "string", "description": "Event subtitle" },
+        "bannerText": { "type": "string", "description": "Banner or certification title" },
+        "badgeTitle": { "type": "string", "description": "Badge upper text" },
+        "badgeSubtitle": { "type": "string", "description": "Badge middle text" },
+        "badgeCategory": { "type": "string", "description": "Badge bottom text" },
+        "signatoryName": { "type": "string", "description": "Authorized signatory name" },
+        "signatoryTitle": { "type": "string", "description": "Authorized signatory title" },
+        "signatoryAuthority": { "type": "string", "description": "Authority name" },
+        "mottoText": { "type": "string", "description": "Motto text on card" },
+        "theme": { "type": "string", "description": "Card theme" },
+        "createdAt": { "type": "string", "description": "Creation ISO timestamp" },
+        "downloadCount": { "type": "number", "description": "Number of card downloads" }
+      }
+    }
+  }
+}

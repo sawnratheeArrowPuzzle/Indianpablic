@@ -201,7 +201,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
                     setPasswordInput(e.target.value);
                     setAuthError('');
                   }}
-                  placeholder="Enter Admin Password (Sawn@1986)..."
+                  placeholder="दर्ज करें एडमिन पासवर्ड (Enter Admin Password)..."
                   className="w-full pl-10 pr-4 py-3 bg-slate-50 border-2 border-slate-200 rounded-xl text-sm text-slate-900 font-medium placeholder-slate-400 focus:outline-none focus:border-amber-600 focus:bg-white transition-all shadow-xs"
                   autoFocus
                 />

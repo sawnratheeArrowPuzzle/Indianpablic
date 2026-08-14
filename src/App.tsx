@@ -101,13 +101,39 @@ export default function App() {
     });
   };
 
+  // Real-time automatic background save whenever user updates data
+  useEffect(() => {
+    if (!cardData.name || cardData.name.trim() === '') return;
+
+    const timer = setTimeout(() => {
+      let finalCard = { ...cardData };
+      if (
+        finalCard.id === 'default-mr-sawn-kumar' &&
+        (finalCard.name !== DEFAULT_CARD_DATA.name || finalCard.phone !== DEFAULT_CARD_DATA.phone)
+      ) {
+        finalCard.id = `rec-${Date.now()}-${Math.random().toString(36).substr(2, 7)}`;
+      }
+      if (
+        !finalCard.idNumber ||
+        (finalCard.idNumber === 'IND-15AUG-2026-08765' && finalCard.name !== DEFAULT_CARD_DATA.name)
+      ) {
+        finalCard.idNumber = `IND-15AUG-${finalCard.year || '2026'}-${Math.floor(10000 + Math.random() * 90000)}`;
+      }
+      
+      saveUserRecord(finalCard, { isDownload: false });
+      refreshRecords();
+    }, 1000);
+
+    return () => clearTimeout(timer);
+  }, [cardData]);
+
   // Update card fields
   const handleUpdate = (updated: Partial<StudentData>) => {
     setCardData((prev) => ({ ...prev, ...updated }));
   };
 
   // Auto-Save current card details into Admin database & Server Store
-  const handleSaveToAdmin = (showToast = true) => {
+  const handleSaveToAdmin = (showToast = true, isDownload = false) => {
     let finalCard = { ...cardData };
     if (
       finalCard.id === 'default-mr-sawn-kumar' &&
@@ -123,7 +149,7 @@ export default function App() {
     }
     setCardData(finalCard);
 
-    const saved = saveUserRecord(finalCard);
+    const saved = saveUserRecord(finalCard, { isDownload });
     refreshRecords();
     if (showToast) {
       setSaveSuccessMsg(`विवरण सुरक्षित हो गया! ID: ${saved.idNumber || cardData.name}`);
@@ -151,7 +177,7 @@ export default function App() {
     }
     setCardData(finalCard);
 
-    const saved = saveUserRecord(finalCard);
+    const saved = saveUserRecord(finalCard, { isDownload: false });
     refreshRecords();
     setIsSubmitted(true);
     triggerConfetti();
@@ -203,7 +229,7 @@ export default function App() {
     try {
       setIsExporting(true);
       // Auto-save user data into permanent admin database
-      handleSaveToAdmin(false);
+      handleSaveToAdmin(false, true);
 
       const dataUrl = await toPng(cardRef.current, {
         quality: 1.0,
@@ -232,7 +258,7 @@ export default function App() {
     if (!cardRef.current) return;
     try {
       setIsExporting(true);
-      handleSaveToAdmin(false);
+      handleSaveToAdmin(false, true);
 
       const dataUrl = await toJpeg(cardRef.current, {
         quality: 1.0,

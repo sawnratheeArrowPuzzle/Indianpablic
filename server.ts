@@ -134,6 +134,27 @@ function writeRecordsToDisk(records: any[]) {
 // Initialize seed data on startup if needed
 readRecordsFromDisk();
 
+// --- SEO ROUTES ---
+app.get('/robots.txt', (req, res) => {
+  const robotsPath = path.join(process.cwd(), 'public', 'robots.txt');
+  if (fs.existsSync(robotsPath)) {
+    res.setHeader('Content-Type', 'text/plain');
+    res.sendFile(robotsPath);
+  } else {
+    res.type('text/plain').send("User-agent: *\nAllow: /\nDisallow: /api/\nSitemap: https://indianpublic.netlify.app/sitemap.xml");
+  }
+});
+
+app.get('/sitemap.xml', (req, res) => {
+  const sitemapPath = path.join(process.cwd(), 'public', 'sitemap.xml');
+  if (fs.existsSync(sitemapPath)) {
+    res.setHeader('Content-Type', 'application/xml');
+    res.sendFile(sitemapPath);
+  } else {
+    res.type('application/xml').send('<?xml version="1.0" encoding="UTF-8"?><urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9"><url><loc>https://indianpublic.netlify.app/</loc><lastmod>2026-08-14</lastmod><changefreq>daily</changefreq><priority>1.0</priority></url></urlset>');
+  }
+});
+
 // --- API ROUTES ---
 
 // 1. GET all records
@@ -168,13 +189,16 @@ app.post('/api/records', (req, res) => {
       return false;
     });
 
+    const isDownload = Boolean(req.body.isDownload);
+
     let savedRecord;
     if (existingIndex >= 0) {
+      const currentDownloads = records[existingIndex].downloadCount || 0;
       savedRecord = {
         ...records[existingIndex],
         ...student,
         id: records[existingIndex].id,
-        downloadCount: (records[existingIndex].downloadCount || 0) + 1,
+        downloadCount: isDownload ? currentDownloads + 1 : currentDownloads,
         updatedAt: new Date().toISOString(),
       };
       records[existingIndex] = savedRecord;
@@ -190,7 +214,7 @@ app.post('/api/records', (req, res) => {
         id: (student.id && !isDefaultSample) ? student.id : generatedId,
         idNumber: finalIdNumber,
         createdAt: student.createdAt || new Date().toISOString(),
-        downloadCount: 1,
+        downloadCount: isDownload ? 1 : 0,
       };
       records.unshift(savedRecord);
     }
