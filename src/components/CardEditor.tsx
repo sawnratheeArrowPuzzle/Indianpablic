@@ -164,15 +164,15 @@ export const CardEditor: React.FC<CardEditorProps> = ({
         </div>
       )}
 
-      {/* Card Style Selector (3 New Premium Looks + Classic) */}
+      {/* Card Style Selector (3 Premium Looks) */}
       <div className="mt-3.5 pb-3 border-b border-amber-900/10">
         <label className="block text-slate-700 font-bold mb-1.5 flex items-center justify-between">
           <span>Card Style (डिज़ाइन चुनें)</span>
           <span className="text-[10px] font-normal text-amber-800 bg-amber-100/70 px-2 py-0.5 rounded-full border border-amber-200">
-            4 Premium Looks
+            3 Themes
           </span>
         </label>
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+        <div className="grid grid-cols-3 gap-2">
           <button
             type="button"
             onClick={() => onChange({ theme: 'independence_day' })}
@@ -186,21 +186,6 @@ export const CardEditor: React.FC<CardEditorProps> = ({
               🇮🇳 Tiranga
             </span>
             <span className="text-[9.5px] text-slate-500">क्लासिक तिरंगा</span>
-          </button>
-
-          <button
-            type="button"
-            onClick={() => onChange({ theme: 'royal_gold' })}
-            className={`p-2 rounded-xl border text-left transition-all flex flex-col items-start ${
-              data.theme === 'royal_gold'
-                ? 'bg-gradient-to-r from-amber-50 to-orange-50 text-[#0B1E36] border-[#D4AF37] ring-2 ring-[#D4AF37]/50 shadow-xs'
-                : 'bg-white border-slate-200 hover:border-amber-400 text-slate-700'
-            }`}
-          >
-            <span className="text-[11px] font-extrabold text-[#D97706] flex items-center gap-1">
-              👑 Royal Tiranga
-            </span>
-            <span className="text-[9.5px] text-slate-500">शाही तिरंगा गोल्ड</span>
           </button>
 
           <button

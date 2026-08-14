@@ -7,7 +7,6 @@ import { AzadiMahotsavSvg } from './AzadiMahotsavSvg';
 import { ProudIndianBadge } from './ProudIndianBadge';
 import { IndianMonumentsSilhouette } from './IndianMonumentsSilhouette';
 import { formatMaskedPhone } from '../utils/storage';
-import { CardThemeRoyalGold } from './CardThemeRoyalGold';
 import { CardThemeModernDigital } from './CardThemeModernDigital';
 import { CardThemeVintageHeritage } from './CardThemeVintageHeritage';
 
@@ -24,10 +23,6 @@ export const IndependenceCard: React.FC<IndependenceCardProps> = ({
   className = '',
   isPrintMode = false,
 }) => {
-  if (data.theme === 'royal_gold') {
-    return <CardThemeRoyalGold data={data} cardRef={cardRef} className={className} isPrintMode={isPrintMode} />;
-  }
-
   if (data.theme === 'modern_digital') {
     return <CardThemeModernDigital data={data} cardRef={cardRef} className={className} isPrintMode={isPrintMode} />;
   }

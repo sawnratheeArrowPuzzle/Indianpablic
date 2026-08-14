@@ -1,6 +1,5 @@
 export type CardTheme = 
   | 'independence_day' 
-  | 'royal_gold' 
   | 'modern_digital' 
   | 'vintage_khadi' 
   | 'school_id' 

@@ -473,7 +473,7 @@ export default function App() {
                 </span>
               </div>
 
-              {/* 4 Card Themes Switcher */}
+              {/* 3 Card Themes Switcher */}
               <div className="flex items-center space-x-1 bg-amber-100/60 p-1 rounded-xl border border-amber-900/15">
                 <button
                   type="button"
@@ -485,17 +485,6 @@ export default function App() {
                   }`}
                 >
                   🇮🇳 Classic
-                </button>
-                <button
-                  type="button"
-                  onClick={() => handleUpdate({ theme: 'royal_gold' })}
-                  className={`px-2.5 py-1 rounded-lg text-[11px] font-bold transition-all ${
-                    cardData.theme === 'royal_gold'
-                      ? 'bg-gradient-to-r from-amber-500 to-orange-500 text-white shadow-xs border border-amber-600'
-                      : 'text-slate-600 hover:text-slate-900'
-                  }`}
-                >
-                  👑 Royal Tiranga
                 </button>
                 <button
                   type="button"
