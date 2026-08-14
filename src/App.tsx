@@ -108,7 +108,22 @@ export default function App() {
 
   // Auto-Save current card details into Admin database & Server Store
   const handleSaveToAdmin = (showToast = true) => {
-    const saved = saveUserRecord(cardData);
+    let finalCard = { ...cardData };
+    if (
+      finalCard.id === 'default-mr-sawn-kumar' &&
+      (finalCard.name !== DEFAULT_CARD_DATA.name || finalCard.phone !== DEFAULT_CARD_DATA.phone)
+    ) {
+      finalCard.id = `rec-${Date.now()}-${Math.random().toString(36).substr(2, 7)}`;
+    }
+    if (
+      !finalCard.idNumber ||
+      (finalCard.idNumber === 'IND-15AUG-2026-08765' && finalCard.name !== DEFAULT_CARD_DATA.name)
+    ) {
+      finalCard.idNumber = `IND-15AUG-${finalCard.year || '2026'}-${Math.floor(10000 + Math.random() * 90000)}`;
+    }
+    setCardData(finalCard);
+
+    const saved = saveUserRecord(finalCard);
     refreshRecords();
     if (showToast) {
       setSaveSuccessMsg(`विवरण सुरक्षित हो गया! ID: ${saved.idNumber || cardData.name}`);
@@ -119,13 +134,22 @@ export default function App() {
 
   // Submit Handler: Validates, saves automatically to persistent DB, and marks as submitted
   const handleSubmitCard = () => {
-    // Generate ID number if missing
     let finalCard = { ...cardData };
-    if (!finalCard.idNumber || finalCard.idNumber.trim() === '') {
-      const randomNum = Math.floor(10000 + Math.random() * 90000);
-      finalCard.idNumber = `IND-15AUG-${finalCard.year || '2025'}-${randomNum}`;
-      setCardData(finalCard);
+    if (
+      finalCard.id === 'default-mr-sawn-kumar' &&
+      (finalCard.name !== DEFAULT_CARD_DATA.name || finalCard.phone !== DEFAULT_CARD_DATA.phone)
+    ) {
+      finalCard.id = `rec-${Date.now()}-${Math.random().toString(36).substr(2, 7)}`;
     }
+    if (
+      !finalCard.idNumber ||
+      finalCard.idNumber.trim() === '' ||
+      (finalCard.idNumber === 'IND-15AUG-2026-08765' && finalCard.name !== DEFAULT_CARD_DATA.name)
+    ) {
+      const randomNum = Math.floor(10000 + Math.random() * 90000);
+      finalCard.idNumber = `IND-15AUG-${finalCard.year || '2026'}-${randomNum}`;
+    }
+    setCardData(finalCard);
 
     const saved = saveUserRecord(finalCard);
     refreshRecords();
@@ -136,9 +160,13 @@ export default function App() {
     setTimeout(() => setSaveSuccessMsg(null), 5000);
   };
 
-  // Reset to original 100% exact sample
+  // Reset to original 100% exact sample with ready-to-save fresh identity
   const handleResetToDefault = () => {
-    setCardData(DEFAULT_CARD_DATA);
+    setCardData({
+      ...DEFAULT_CARD_DATA,
+      id: `rec-${Date.now()}-${Math.random().toString(36).substr(2, 7)}`,
+      idNumber: `IND-15AUG-2026-${Math.floor(10000 + Math.random() * 90000)}`,
+    });
     setIsSubmitted(false);
   };
 

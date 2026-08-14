@@ -1,8 +1,11 @@
 import { StudentData, AdminRecord } from '../types';
 
 const STORAGE_KEY = 'india_id_card_records_v1';
-const DB_NAME = 'GovtIdCardPermanentDB';
-const DB_STORE = 'student_records';
+const DB_NAME = 'GovtIdCardPermanentDB_v2';
+const DB_STORE = 'student_records_store';
+
+// In-memory cache for ultra-fast UI rendering
+let inMemoryRecordsCache: AdminRecord[] | null = null;
 
 /**
  * Format phone number for card display:
@@ -113,7 +116,7 @@ const SEED_RECORDS: AdminRecord[] = [
   },
 ];
 
-// --- PERMANENT INDEXEDDB HELPER ---
+// --- PERMANENT INDEXEDDB ENGINE (Capable of storing 1,00,000+ records) ---
 function getIndexedDB(): Promise<IDBDatabase | null> {
   return new Promise((resolve) => {
     if (typeof window === 'undefined' || !window.indexedDB) {
@@ -131,7 +134,39 @@ function getIndexedDB(): Promise<IDBDatabase | null> {
   });
 }
 
-async function saveToIndexedDB(records: AdminRecord[]) {
+export async function getAllFromIndexedDB(): Promise<AdminRecord[]> {
+  try {
+    const db = await getIndexedDB();
+    if (!db) return [];
+    return new Promise((resolve) => {
+      const tx = db.transaction(DB_STORE, 'readonly');
+      const store = tx.objectStore(DB_STORE);
+      const req = store.getAll();
+      req.onsuccess = () => {
+        const result = req.result || [];
+        resolve(Array.isArray(result) ? result : []);
+      };
+      req.onerror = () => resolve([]);
+    });
+  } catch (err) {
+    console.warn('IndexedDB read error', err);
+    return [];
+  }
+}
+
+export async function putRecordToIndexedDB(record: AdminRecord) {
+  try {
+    const db = await getIndexedDB();
+    if (!db) return;
+    const tx = db.transaction(DB_STORE, 'readwrite');
+    const store = tx.objectStore(DB_STORE);
+    store.put(record);
+  } catch (err) {
+    console.warn('IndexedDB write single record error', err);
+  }
+}
+
+export async function saveAllToIndexedDB(records: AdminRecord[]) {
   try {
     const db = await getIndexedDB();
     if (!db) return;
@@ -140,63 +175,167 @@ async function saveToIndexedDB(records: AdminRecord[]) {
     store.clear();
     records.forEach((r) => store.put(r));
   } catch (err) {
-    console.warn('IndexedDB write error', err);
+    console.warn('IndexedDB bulk write error', err);
   }
 }
 
-// Synchronously get from localStorage
+export async function deleteFromIndexedDB(id: string) {
+  try {
+    const db = await getIndexedDB();
+    if (!db) return;
+    const tx = db.transaction(DB_STORE, 'readwrite');
+    const store = tx.objectStore(DB_STORE);
+    store.delete(id);
+  } catch (err) {
+    console.warn('IndexedDB delete error', err);
+  }
+}
+
+export async function clearIndexedDB() {
+  try {
+    const db = await getIndexedDB();
+    if (!db) return;
+    const tx = db.transaction(DB_STORE, 'readwrite');
+    const store = tx.objectStore(DB_STORE);
+    store.clear();
+  } catch (err) {
+    console.warn('IndexedDB clear error', err);
+  }
+}
+
+// Safely update localStorage without throwing QuotaExceededError
+function safelySaveToLocalStorage(records: AdminRecord[]) {
+  try {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(records));
+  } catch (err) {
+    // If full, save lightweight versions of the records in localStorage
+    try {
+      const lightweight = records.slice(0, 50).map((r) => ({
+        ...r,
+        photoUrl: r.photoUrl.startsWith('data:') ? 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=600' : r.photoUrl,
+      }));
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(lightweight));
+    } catch {
+      console.warn('LocalStorage full; using IndexedDB & server disk as primary storage.');
+    }
+  }
+}
+
+// Synchronously get from Memory / LocalStorage
 export function getSavedRecords(): AdminRecord[] {
+  if (inMemoryRecordsCache && inMemoryRecordsCache.length > 0) {
+    return inMemoryRecordsCache;
+  }
   try {
     const data = localStorage.getItem(STORAGE_KEY);
     if (!data) {
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(SEED_RECORDS));
+      inMemoryRecordsCache = [...SEED_RECORDS];
+      safelySaveToLocalStorage(SEED_RECORDS);
       return SEED_RECORDS;
     }
     const parsed = JSON.parse(data);
-    return Array.isArray(parsed) && parsed.length > 0 ? parsed : SEED_RECORDS;
+    if (Array.isArray(parsed) && parsed.length > 0) {
+      inMemoryRecordsCache = parsed;
+      return parsed;
+    }
+    inMemoryRecordsCache = [...SEED_RECORDS];
+    return SEED_RECORDS;
   } catch (err) {
     console.error('Failed to parse records from storage', err);
+    inMemoryRecordsCache = [...SEED_RECORDS];
     return SEED_RECORDS;
   }
 }
 
-// Asynchronously sync from server API and update local storage
+// Merge records by ID & unique citizen phone+name
+function mergeRecordArrays(...arrays: AdminRecord[][]): AdminRecord[] {
+  const map = new Map<string, AdminRecord>();
+  arrays.forEach((arr) => {
+    if (Array.isArray(arr)) {
+      arr.forEach((r) => {
+        if (!r) return;
+        const key = r.id || `${r.phone || ''}-${r.name || ''}`;
+        if (!map.has(key)) {
+          map.set(key, r);
+        } else {
+          // Keep the newer / more complete version
+          const existing = map.get(key)!;
+          const newer = new Date(r.createdAt || 0).getTime() >= new Date(existing.createdAt || 0).getTime() ? r : existing;
+          map.set(key, { ...existing, ...newer });
+        }
+      });
+    }
+  });
+  return Array.from(map.values());
+}
+
+// Asynchronously sync from IndexedDB + Server API + LocalStorage
 export async function syncRecordsWithServer(): Promise<AdminRecord[]> {
+  const localMem = getSavedRecords();
+  const idbRecords = await getAllFromIndexedDB();
+  let serverRecords: AdminRecord[] = [];
+
   try {
     const res = await fetch('/api/records');
     if (res.ok) {
       const data = await res.json();
-      if (data.success && Array.isArray(data.records) && data.records.length > 0) {
-        const local = getSavedRecords();
-        // Merge without duplicates
-        const map = new Map<string, AdminRecord>();
-        data.records.forEach((r: AdminRecord) => map.set(r.id || r.idNumber, r));
-        local.forEach((r: AdminRecord) => {
-          const key = r.id || r.idNumber;
-          if (!map.has(key)) map.set(key, r);
-        });
-        const merged = Array.from(map.values());
-        localStorage.setItem(STORAGE_KEY, JSON.stringify(merged));
-        saveToIndexedDB(merged);
-        return merged;
+      if (data.success && Array.isArray(data.records)) {
+        serverRecords = data.records;
       }
     }
   } catch (err) {
-    console.warn('Server sync skipped (running offline/local mode)', err);
+    console.warn('Server sync offline or skipped', err);
   }
+
+  const merged = mergeRecordArrays(serverRecords, idbRecords, localMem);
+  if (merged.length > 0) {
+    inMemoryRecordsCache = merged;
+    safelySaveToLocalStorage(merged);
+    saveAllToIndexedDB(merged);
+    return merged;
+  }
+
   return getSavedRecords();
 }
 
-// Save user record both locally and to persistent server API
+/**
+ * Save user record permanently across:
+ * 1. In-Memory Cache (Instant UI update)
+ * 2. Permanent IndexedDB (Unlimited capacity for lakhs of users)
+ * 3. Server Disk JSON / API (/api/records)
+ * 4. LocalStorage
+ */
 export function saveUserRecord(student: StudentData): AdminRecord {
-  const existing = getSavedRecords();
+  const existing = [...getSavedRecords()];
 
-  const foundIndex = existing.findIndex(
-    (r) =>
-      (r.idNumber && student.idNumber && r.idNumber === student.idNumber) ||
-      (r.phone && student.phone && r.phone === student.phone && r.name.toLowerCase() === student.name.toLowerCase()) ||
-      (r.id && student.id && r.id === student.id)
-  );
+  const isDefaultSample = student.id === 'default-mr-sawn-kumar' || student.id === 'seed-1';
+
+  // Find if this exact citizen already exists
+  const foundIndex = existing.findIndex((r) => {
+    if (!isDefaultSample && student.id && r.id && r.id === student.id) {
+      return true;
+    }
+    if (
+      r.phone &&
+      student.phone &&
+      r.phone === student.phone &&
+      r.name &&
+      student.name &&
+      r.name.trim().toLowerCase() === student.name.trim().toLowerCase()
+    ) {
+      return true;
+    }
+    if (
+      student.idNumber &&
+      r.idNumber &&
+      r.idNumber === student.idNumber &&
+      !isDefaultSample &&
+      student.idNumber !== 'IND-15AUG-2026-08765'
+    ) {
+      return true;
+    }
+    return false;
+  });
 
   let updatedRecord: AdminRecord;
 
@@ -204,45 +343,52 @@ export function saveUserRecord(student: StudentData): AdminRecord {
     updatedRecord = {
       ...existing[foundIndex],
       ...student,
+      id: existing[foundIndex].id,
       downloadCount: (existing[foundIndex].downloadCount || 0) + 1,
       createdAt: new Date().toISOString(),
     };
     existing[foundIndex] = updatedRecord;
   } else {
+    const generatedId = `rec-${Date.now()}-${Math.random().toString(36).substr(2, 7)}`;
+    let finalIdNumber = student.idNumber;
+    if (!finalIdNumber || finalIdNumber === 'IND-15AUG-2026-08765') {
+      finalIdNumber = `IND-15AUG-${student.year || '2026'}-${Math.floor(10000 + Math.random() * 90000)}`;
+    }
+
     updatedRecord = {
       ...student,
-      id: student.id || `rec-${Date.now()}-${Math.random().toString(36).substr(2, 5)}`,
-      createdAt: new Date().toISOString(),
+      id: student.id && !isDefaultSample ? student.id : generatedId,
+      idNumber: finalIdNumber,
+      createdAt: student.createdAt || new Date().toISOString(),
       downloadCount: 1,
     };
     existing.unshift(updatedRecord);
   }
 
-  // 1. LocalStorage
-  try {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(existing));
-  } catch (err) {
-    console.warn('Storage error, keeping 100 items', err);
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(existing.slice(0, 100)));
-  }
+  // 1. Update in-memory cache
+  inMemoryRecordsCache = existing;
 
-  // 2. IndexedDB
-  saveToIndexedDB(existing);
+  // 2. Update LocalStorage
+  safelySaveToLocalStorage(existing);
 
-  // 3. Persistent Server API (disk JSON)
+  // 3. Update IndexedDB permanently
+  putRecordToIndexedDB(updatedRecord);
+
+  // 4. Update Server Disk API
   fetch('/api/records', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(updatedRecord),
-  }).catch((err) => console.warn('Background server save warning:', err));
+  }).catch((err) => console.warn('Server record save warning:', err));
 
   return updatedRecord;
 }
 
 export function deleteUserRecord(id: string): AdminRecord[] {
   const records = getSavedRecords().filter((r) => r.id !== id && r.idNumber !== id);
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(records));
-  saveToIndexedDB(records);
+  inMemoryRecordsCache = records;
+  safelySaveToLocalStorage(records);
+  deleteFromIndexedDB(id);
 
   // Delete on server
   fetch(`/api/records/${id}`, { method: 'DELETE' }).catch(() => {});
@@ -251,8 +397,9 @@ export function deleteUserRecord(id: string): AdminRecord[] {
 }
 
 export function clearAllRecords(): AdminRecord[] {
-  localStorage.setItem(STORAGE_KEY, JSON.stringify([]));
-  saveToIndexedDB([]);
+  inMemoryRecordsCache = [];
+  safelySaveToLocalStorage([]);
+  clearIndexedDB();
 
   // Clear on server
   fetch('/api/records', { method: 'DELETE' }).catch(() => {});

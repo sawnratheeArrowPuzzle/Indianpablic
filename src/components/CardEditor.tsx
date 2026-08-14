@@ -18,6 +18,7 @@ import {
   Tag
 } from 'lucide-react';
 import { StudentData } from '../types';
+import { optimizePhoto } from '../utils/imageOptimizer';
 
 interface CardEditorProps {
   data: StudentData;
@@ -75,9 +76,11 @@ export const CardEditor: React.FC<CardEditorProps> = ({
     const file = e.target.files?.[0];
     if (file) {
       const reader = new FileReader();
-      reader.onload = (event) => {
+      reader.onload = async (event) => {
         if (event.target?.result) {
-          onChange({ photoUrl: event.target.result as string });
+          const rawUrl = event.target.result as string;
+          const optimized = await optimizePhoto(rawUrl);
+          onChange({ photoUrl: optimized });
         }
       };
       reader.readAsDataURL(file);
@@ -102,7 +105,7 @@ export const CardEditor: React.FC<CardEditorProps> = ({
     }
   };
 
-  const capturePhoto = () => {
+  const capturePhoto = async () => {
     if (videoRef.current) {
       const canvas = document.createElement('canvas');
       canvas.width = videoRef.current.videoWidth || 480;
@@ -110,8 +113,9 @@ export const CardEditor: React.FC<CardEditorProps> = ({
       const ctx = canvas.getContext('2d');
       if (ctx) {
         ctx.drawImage(videoRef.current, 0, 0, canvas.width, canvas.height);
-        const dataUrl = canvas.toDataURL('image/jpeg', 0.95);
-        onChange({ photoUrl: dataUrl });
+        const dataUrl = canvas.toDataURL('image/jpeg', 0.90);
+        const optimized = await optimizePhoto(dataUrl);
+        onChange({ photoUrl: optimized });
       }
       stopCamera();
     }

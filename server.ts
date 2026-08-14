@@ -6,7 +6,8 @@ import { createServer as createViteServer } from 'vite';
 const app = express();
 const PORT = 3000;
 
-app.use(express.json({ limit: '15mb' }));
+app.use(express.json({ limit: '100mb' }));
+app.use(express.urlencoded({ extended: true, limit: '100mb' }));
 
 // Persistent records directory and file
 const DATA_DIR = path.join(process.cwd(), 'data');
@@ -108,7 +109,7 @@ function readRecordsFromDisk(): any[] {
     if (fs.existsSync(RECORDS_FILE)) {
       const raw = fs.readFileSync(RECORDS_FILE, 'utf-8');
       const parsed = JSON.parse(raw);
-      if (Array.isArray(parsed) && parsed.length > 0) {
+      if (Array.isArray(parsed)) {
         return parsed;
       }
     }
@@ -150,26 +151,44 @@ app.post('/api/records', (req, res) => {
     }
 
     const records = readRecordsFromDisk();
-    const existingIndex = records.findIndex(
-      (r) =>
-        (r.idNumber && student.idNumber && r.idNumber === student.idNumber) ||
-        (r.phone && student.phone && r.phone === student.phone && r.name.toLowerCase() === student.name.toLowerCase()) ||
-        (r.id && student.id && r.id === student.id)
-    );
+    
+    // Check if this is a genuinely existing record to update
+    const isDefaultSample = student.id === 'default-mr-sawn-kumar' || student.id === 'seed-1';
+    
+    const existingIndex = records.findIndex((r) => {
+      if (!isDefaultSample && student.id && r.id && r.id === student.id) {
+        return true;
+      }
+      if (r.phone && student.phone && r.phone === student.phone && r.name && student.name && r.name.trim().toLowerCase() === student.name.trim().toLowerCase()) {
+        return true;
+      }
+      if (student.idNumber && r.idNumber && r.idNumber === student.idNumber && !isDefaultSample && student.idNumber !== 'IND-15AUG-2026-08765') {
+        return true;
+      }
+      return false;
+    });
 
     let savedRecord;
     if (existingIndex >= 0) {
       savedRecord = {
         ...records[existingIndex],
         ...student,
+        id: records[existingIndex].id,
         downloadCount: (records[existingIndex].downloadCount || 0) + 1,
         updatedAt: new Date().toISOString(),
       };
       records[existingIndex] = savedRecord;
     } else {
+      const generatedId = `rec-${Date.now()}-${Math.random().toString(36).substr(2, 7)}`;
+      let finalIdNumber = student.idNumber;
+      if (!finalIdNumber || finalIdNumber === 'IND-15AUG-2026-08765') {
+        finalIdNumber = `IND-15AUG-${student.year || '2026'}-${Math.floor(10000 + Math.random() * 90000)}`;
+      }
+      
       savedRecord = {
         ...student,
-        id: student.id || `rec-${Date.now()}-${Math.random().toString(36).substr(2, 6)}`,
+        id: (student.id && !isDefaultSample) ? student.id : generatedId,
+        idNumber: finalIdNumber,
         createdAt: student.createdAt || new Date().toISOString(),
         downloadCount: 1,
       };
