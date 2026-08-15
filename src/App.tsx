@@ -25,7 +25,9 @@ import {
   CreditCard,
   MapPin,
   ExternalLink,
-  ChevronRight
+  ChevronRight,
+  QrCode,
+  Scan
 } from 'lucide-react';
 
 import { StudentData, AdminRecord } from './types';
@@ -33,6 +35,7 @@ import { IndependenceCard } from './components/IndependenceCard';
 import { CardEditor } from './components/CardEditor';
 import { BulkStudentGenerator } from './components/BulkStudentGenerator';
 import { AdminPanel } from './components/AdminPanel';
+import { QrStudioModal } from './components/QrStudioModal';
 import { LionEmblemSvg } from './components/LionEmblemSvg';
 import { AshokaChakraSvg } from './components/AshokaChakraSvg';
 import { getSavedRecords, saveUserRecord, deleteUserRecord, clearAllRecords, syncRecordsWithServer } from './utils/storage';
@@ -70,6 +73,7 @@ export default function App() {
   const [isExporting, setIsExporting] = useState(false);
   const [isBulkOpen, setIsBulkOpen] = useState(false);
   const [isAdminOpen, setIsAdminOpen] = useState(false);
+  const [isQrStudioOpen, setIsQrStudioOpen] = useState(false);
   const [printAllList, setPrintAllList] = useState<StudentData[] | null>(null);
   const [records, setRecords] = useState<AdminRecord[]>([]);
   const [saveSuccessMsg, setSaveSuccessMsg] = useState<string | null>(null);
@@ -357,8 +361,21 @@ export default function App() {
             </div>
           </div>
 
-          {/* Top Right Controls: Discreet Mini Admin Login + School Batch */}
+          {/* Top Right Controls: QR Studio + School Batch + Discreet Mini Admin Login */}
           <div className="flex items-center space-x-2">
+            {/* QR CODE GENERATOR & SCANNER BUTTON */}
+            <button
+              type="button"
+              id="open-qr-studio-btn"
+              onClick={() => setIsQrStudioOpen(true)}
+              className="px-3 py-1.5 rounded-xl bg-gradient-to-r from-emerald-800 to-teal-900 hover:from-emerald-900 hover:to-teal-950 text-white text-xs font-bold flex items-center space-x-1.5 border border-emerald-600 transition-all shadow-2xs"
+              title="QR Code Generator & Scanner"
+            >
+              <QrCode className="w-3.5 h-3.5 text-emerald-300" />
+              <span className="hidden sm:inline">QR Studio (जनरेटर/स्कैनर)</span>
+              <span className="sm:hidden">QR Studio</span>
+            </button>
+
             <button
               type="button"
               onClick={() => setIsBulkOpen(true)}
@@ -390,6 +407,16 @@ export default function App() {
               <span>डिजिटल भारत • 15 अगस्त स्वतंत्रता दिवस अमृत महोत्सव पहचान पत्र</span>
             </span>
             <div className="flex items-center space-x-3 text-[11px]">
+              <button
+                type="button"
+                onClick={() => setIsQrStudioOpen(true)}
+                className="text-emerald-900 font-bold hover:underline flex items-center space-x-1"
+              >
+                <QrCode className="w-3 h-3 text-emerald-700" />
+                <span className="hidden sm:inline">QR जनरेटर व स्कैनर (QR Studio)</span>
+                <span className="sm:hidden">QR Studio</span>
+              </button>
+
               <button
                 onClick={() => setIsAdminOpen(true)}
                 className="text-amber-900 font-bold hover:underline flex items-center space-x-1"
@@ -611,7 +638,13 @@ export default function App() {
         onPrintAll={handlePrintAll}
       />
 
-      {/* 6. DEDICATED PRINT CONTAINER (Hidden in web, visible when printing) */}
+      {/* 6. QR CODE STUDIO (GENERATOR & SCANNER) MODAL */}
+      <QrStudioModal
+        isOpen={isQrStudioOpen}
+        onClose={() => setIsQrStudioOpen(false)}
+      />
+
+      {/* 7. DEDICATED PRINT CONTAINER (Hidden in web, visible when printing) */}
       <div className="hidden print:block print-only bg-white text-black p-0 m-0">
         {printAllList && printAllList.length > 0 ? (
           printAllList.map((stu, idx) => (
