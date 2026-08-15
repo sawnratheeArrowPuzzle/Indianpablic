@@ -349,7 +349,7 @@ export default function App() {
                 </span>
               </div>
               <h1 className="font-cinzel font-black text-sm sm:text-base text-[#0B1E36] leading-tight tracking-tight">
-                NATIONAL ID CARD & CERTIFICATE ISSUING SYSTEM
+                Create Professional ID Cards, Certificates & Badges
               </h1>
               <p className="text-[10px] sm:text-[11px] text-slate-500 hidden md:block">
                 स्वतंत्रता दिवस एवं विद्यालय छात्र सहभागिता पहचान पत्र निर्माण प्रणाली
