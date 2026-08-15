@@ -327,32 +327,32 @@ export default function App() {
   };
 
   return (
-    <div className="min-h-screen bg-[#FAF7F0] text-slate-900 flex flex-col selection:bg-amber-500 selection:text-white font-poppins">
+    <div className="min-h-screen bg-[#FAF7F0] text-slate-900 flex flex-col selection:bg-amber-500 selection:text-white font-poppins w-full overflow-x-hidden">
       {/* 1. NATIONAL TRICOLOR TOP ACCENT LINE */}
       <div className="h-1.5 w-full bg-gradient-to-r from-[#FF9933] via-[#FFFFFF] to-[#138808] border-b border-amber-900/10 no-print" />
 
       {/* 2. OFFICIAL GOVERNMENT PORTAL HEADER */}
-      <header className="no-print bg-[#FFFDF9] border-b border-amber-900/15 shadow-xs">
+      <header className="no-print bg-[#FFFDF9] border-b border-amber-900/15 shadow-xs w-full overflow-hidden">
         {/* Top Official National Emblem Banner */}
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 py-2.5 flex items-center justify-between">
-          <div className="flex items-center space-x-3 sm:space-x-4">
+        <div className="max-w-7xl mx-auto px-3 sm:px-6 py-2.5 flex items-center justify-between gap-2">
+          <div className="flex items-center space-x-2 sm:space-x-4 min-w-0">
             {/* National Lion Capital Emblem */}
-            <div className="flex items-center space-x-2">
+            <div className="flex items-center space-x-2 shrink-0">
               <div className="p-1 rounded-lg bg-[#FAF6EE] border border-amber-900/20 shadow-2xs">
-                <LionEmblemSvg size={36} color="#0B1E36" />
+                <LionEmblemSvg size={32} color="#0B1E36" />
               </div>
             </div>
 
-            <div className="border-l border-amber-900/20 pl-3 sm:pl-4">
-              <div className="flex items-center space-x-2">
-                <span className="font-montserrat font-bold text-xs sm:text-sm text-[#0B1E36] tracking-wide uppercase">
-                  भारत सरकार • GOVERNMENT OF INDIA
+            <div className="border-l border-amber-900/20 pl-2.5 sm:pl-4 min-w-0">
+              <div className="flex items-center space-x-1.5 sm:space-x-2">
+                <span className="font-montserrat font-bold text-[10.5px] sm:text-sm text-[#0B1E36] tracking-wide uppercase truncate">
+                  भारत सरकार • GOVT OF INDIA
                 </span>
                 <span className="hidden sm:inline-block bg-amber-100 text-amber-900 text-[10px] font-bold px-2 py-0.5 rounded border border-amber-300">
                   आधिकारिक पोर्टल
                 </span>
               </div>
-              <h1 className="font-cinzel font-black text-sm sm:text-base text-[#0B1E36] leading-tight tracking-tight">
+              <h1 className="font-cinzel font-black text-xs sm:text-base text-[#0B1E36] leading-tight tracking-tight line-clamp-1 sm:line-clamp-none">
                 Create Professional ID Cards, Certificates & Badges
               </h1>
               <p className="text-[10px] sm:text-[11px] text-slate-500 hidden md:block">
@@ -362,51 +362,51 @@ export default function App() {
           </div>
 
           {/* Top Right Controls: QR Studio + School Batch + Discreet Mini Admin Login */}
-          <div className="flex items-center space-x-2">
+          <div className="flex items-center space-x-1 sm:space-x-2 shrink-0">
             {/* QR CODE GENERATOR & SCANNER BUTTON */}
             <button
               type="button"
               id="open-qr-studio-btn"
               onClick={() => setIsQrStudioOpen(true)}
-              className="px-3 py-1.5 rounded-xl bg-gradient-to-r from-emerald-800 to-teal-900 hover:from-emerald-900 hover:to-teal-950 text-white text-xs font-bold flex items-center space-x-1.5 border border-emerald-600 transition-all shadow-2xs"
+              className="px-2 sm:px-3 py-1.5 rounded-xl bg-gradient-to-r from-emerald-800 to-teal-900 hover:from-emerald-900 hover:to-teal-950 text-white text-[11px] sm:text-xs font-bold flex items-center space-x-1 sm:space-x-1.5 border border-emerald-600 transition-all shadow-2xs"
               title="QR Code Generator & Scanner"
             >
-              <QrCode className="w-3.5 h-3.5 text-emerald-300" />
-              <span className="hidden sm:inline">QR Studio (जनरेटर/स्कैनर)</span>
-              <span className="sm:hidden">QR Studio</span>
+              <QrCode className="w-3.5 h-3.5 text-emerald-300 shrink-0" />
+              <span className="hidden md:inline">QR Studio (जनरेटर/स्कैनर)</span>
+              <span className="md:hidden">QR Studio</span>
             </button>
 
             <button
               type="button"
               onClick={() => setIsBulkOpen(true)}
-              className="px-3 py-1.5 rounded-xl bg-amber-100/70 hover:bg-amber-200/70 text-amber-950 text-xs font-bold flex items-center space-x-1.5 border border-amber-300/80 transition-colors shadow-2xs"
+              className="px-2 sm:px-3 py-1.5 rounded-xl bg-amber-100/70 hover:bg-amber-200/70 text-amber-950 text-[11px] sm:text-xs font-bold flex items-center space-x-1 sm:space-x-1.5 border border-amber-300/80 transition-colors shadow-2xs"
             >
-              <Users className="w-3.5 h-3.5 text-amber-800" />
-              <span className="hidden sm:inline">School Batch (बैच)</span>
-              <span className="sm:hidden">Batch</span>
+              <Users className="w-3.5 h-3.5 text-amber-800 shrink-0" />
+              <span className="hidden md:inline">School Batch (बैच)</span>
+              <span className="md:hidden">Batch</span>
             </button>
 
             {/* MINI ADMIN BUTTON (Discreet & small) */}
             <button
               type="button"
               onClick={() => setIsAdminOpen(true)}
-              className="p-2 sm:px-2.5 sm:py-1.5 rounded-xl bg-slate-100 hover:bg-amber-100 text-slate-700 hover:text-amber-900 border border-slate-300 hover:border-amber-400 text-xs font-bold flex items-center space-x-1.5 transition-all shadow-2xs"
+              className="p-1.5 sm:px-2.5 sm:py-1.5 rounded-xl bg-slate-100 hover:bg-amber-100 text-slate-700 hover:text-amber-900 border border-slate-300 hover:border-amber-400 text-[11px] sm:text-xs font-bold flex items-center space-x-1 sm:space-x-1.5 transition-all shadow-2xs"
               title="Admin Panel"
             >
-              <Lock className="w-3.5 h-3.5 text-amber-700" />
+              <Lock className="w-3.5 h-3.5 text-amber-700 shrink-0" />
               <span className="hidden md:inline text-[11px]">Admin</span>
             </button>
           </div>
         </div>
 
         {/* Sub Navigation Strip */}
-        <div className="bg-[#FAF4E6] border-t border-amber-900/10 px-4 sm:px-6 py-1.5 text-xs text-amber-950 flex items-center justify-between">
-          <div className="max-w-7xl mx-auto w-full flex items-center justify-between">
-            <span className="flex items-center space-x-2 text-[11px] font-semibold text-slate-700">
+        <div className="bg-[#FAF4E6] border-t border-amber-900/10 px-3 sm:px-6 py-1.5 text-xs text-amber-950">
+          <div className="max-w-7xl mx-auto w-full flex flex-col sm:flex-row items-start sm:items-center justify-between gap-1.5 sm:gap-2">
+            <span className="flex items-center space-x-1.5 text-[10.5px] sm:text-[11px] font-semibold text-slate-700 truncate w-full sm:w-auto">
               <AshokaChakraSvg size={14} color="#000080" />
-              <span>डिजिटल भारत • 15 अगस्त स्वतंत्रता दिवस अमृत महोत्सव पहचान पत्र</span>
+              <span className="truncate">डिजिटल भारत • 15 अगस्त स्वतंत्रता दिवस अमृत महोत्सव पहचान पत्र</span>
             </span>
-            <div className="flex items-center space-x-3 text-[11px]">
+            <div className="flex items-center space-x-3 text-[11px] shrink-0">
               <button
                 type="button"
                 onClick={() => setIsQrStudioOpen(true)}
@@ -432,36 +432,36 @@ export default function App() {
 
       {/* Floating Save Notification Banner */}
       {saveSuccessMsg && (
-        <div className="fixed top-20 right-4 z-50 bg-emerald-800 text-white px-4 py-3 rounded-xl shadow-2xl border border-emerald-600 text-xs font-bold flex items-center space-x-2.5 animate-bounce max-w-md">
+        <div className="fixed top-20 right-4 z-50 bg-emerald-800 text-white px-4 py-3 rounded-xl shadow-2xl border border-emerald-600 text-xs font-bold flex items-center space-x-2.5 animate-bounce max-w-[90vw] sm:max-w-md">
           <CheckCircle2 className="w-5 h-5 text-emerald-300 shrink-0" />
           <span className="leading-snug">{saveSuccessMsg}</span>
         </div>
       )}
 
       {/* 3. MAIN APP CONTENT AREA */}
-      <main className="no-print flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 py-6">
+      <main className="no-print flex-1 max-w-7xl w-full mx-auto px-3 sm:px-6 py-4 sm:py-6 overflow-hidden">
         {/* Top Action Ribbon for Immediate Quality Downloads */}
-        <div className="bg-[#FFFDF9] border border-amber-900/15 rounded-2xl p-3.5 mb-6 shadow-sm flex flex-wrap items-center justify-between gap-3">
-          <div className="flex items-center space-x-3">
-            <div className="w-9 h-9 rounded-xl bg-amber-500/15 border border-amber-500/30 flex items-center justify-center text-amber-800">
+        <div className="bg-[#FFFDF9] border border-amber-900/15 rounded-2xl p-3 sm:p-3.5 mb-5 sm:mb-6 shadow-sm flex flex-col sm:flex-row sm:items-center justify-between gap-3 overflow-hidden">
+          <div className="flex items-center space-x-3 min-w-0">
+            <div className="w-9 h-9 rounded-xl bg-amber-500/15 border border-amber-500/30 flex items-center justify-center text-amber-800 shrink-0">
               <Award className="w-5 h-5" />
             </div>
-            <div>
-              <h2 className="font-montserrat font-bold text-sm text-[#0B1E36]">
+            <div className="min-w-0">
+              <h2 className="font-montserrat font-bold text-xs sm:text-sm text-[#0B1E36] truncate sm:whitespace-normal">
                 15th August High-Definition ID Card Generator
               </h2>
-              <p className="text-[11px] text-slate-500">
+              <p className="text-[10px] sm:text-[11px] text-slate-500">
                 ओरिजिनल जैसा 100% हूबहू फुल क्वालिटी आईडी कार्ड व प्रमाण पत्र तैयार करें
               </p>
             </div>
           </div>
 
-          <div className="flex items-center flex-wrap gap-2">
+          <div className="flex items-center flex-wrap gap-2 shrink-0">
             <button
               type="button"
               onClick={downloadPng}
               disabled={isExporting}
-              className="px-4 py-2 rounded-xl bg-gradient-to-r from-[#0B1E36] to-[#1E3A8A] hover:from-[#081526] hover:to-[#172554] text-white text-xs font-bold flex items-center space-x-1.5 shadow-sm transition-all active:scale-95 disabled:opacity-50"
+              className="flex-1 sm:flex-initial px-3 sm:px-4 py-2 rounded-xl bg-gradient-to-r from-[#0B1E36] to-[#1E3A8A] hover:from-[#081526] hover:to-[#172554] text-white text-[11px] sm:text-xs font-bold flex items-center justify-center space-x-1.5 shadow-sm transition-all active:scale-95 disabled:opacity-50"
             >
               <Download className="w-4 h-4 text-amber-400" />
               <span>{isExporting ? 'Generating HD...' : 'Download HD PNG (फुल क्वालिटी)'}</span>
@@ -471,16 +471,16 @@ export default function App() {
               type="button"
               onClick={downloadPdf}
               disabled={isExporting}
-              className="px-3.5 py-2 rounded-xl bg-white hover:bg-slate-50 text-slate-800 text-xs font-bold flex items-center space-x-1.5 border border-amber-900/20 shadow-2xs transition-all active:scale-95"
+              className="px-3 sm:px-3.5 py-2 rounded-xl bg-white hover:bg-slate-50 text-slate-800 text-[11px] sm:text-xs font-bold flex items-center space-x-1.5 border border-amber-900/20 shadow-2xs transition-all active:scale-95"
             >
               <FileDown className="w-4 h-4 text-red-600" />
-              <span>Download PDF</span>
+              <span>PDF</span>
             </button>
 
             <button
               type="button"
               onClick={handlePrint}
-              className="px-3 py-2 rounded-xl bg-white hover:bg-slate-50 text-slate-800 text-xs font-bold flex items-center space-x-1.5 border border-amber-900/20 shadow-2xs transition-all active:scale-95"
+              className="px-3 py-2 rounded-xl bg-white hover:bg-slate-50 text-slate-800 text-[11px] sm:text-xs font-bold flex items-center space-x-1.5 border border-amber-900/20 shadow-2xs transition-all active:scale-95"
             >
               <Printer className="w-4 h-4 text-blue-700" />
               <span>Print (प्रिंट)</span>

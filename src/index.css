@@ -1,6 +1,24 @@
 @import "tailwindcss";
 
 @layer base {
+  html, body {
+    margin: 0;
+    padding: 0;
+    width: 100%;
+    max-width: 100%;
+    overflow-x: hidden;
+    background-color: #FAF7F0;
+    -webkit-text-size-adjust: 100%;
+  }
+
+  #root {
+    width: 100%;
+    max-width: 100%;
+    overflow-x: hidden;
+    min-height: 100vh;
+    background-color: #FAF7F0;
+  }
+
   .font-cinzel {
     font-family: 'Cinzel', serif;
   }
