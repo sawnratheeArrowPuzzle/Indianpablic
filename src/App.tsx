@@ -36,6 +36,7 @@ import { CardEditor } from './components/CardEditor';
 import { BulkStudentGenerator } from './components/BulkStudentGenerator';
 import { AdminPanel } from './components/AdminPanel';
 import { QrStudioModal } from './components/QrStudioModal';
+import { StagingSeedModal } from './components/StagingSeedModal';
 import { LionEmblemSvg } from './components/LionEmblemSvg';
 import { AshokaChakraSvg } from './components/AshokaChakraSvg';
 import { getSavedRecords, saveUserRecord, deleteUserRecord, clearAllRecords, syncRecordsWithServer } from './utils/storage';
@@ -74,6 +75,7 @@ export default function App() {
   const [isBulkOpen, setIsBulkOpen] = useState(false);
   const [isAdminOpen, setIsAdminOpen] = useState(false);
   const [isQrStudioOpen, setIsQrStudioOpen] = useState(false);
+  const [isStagingOpen, setIsStagingOpen] = useState(false);
   const [printAllList, setPrintAllList] = useState<StudentData[] | null>(null);
   const [records, setRecords] = useState<AdminRecord[]>([]);
   const [saveSuccessMsg, setSaveSuccessMsg] = useState<string | null>(null);
@@ -425,6 +427,18 @@ export default function App() {
                 <span className="hidden sm:inline">पंजीकृत फोन नंबर / नाम खोजें (Search DB)</span>
                 <span className="sm:hidden">Search</span>
               </button>
+
+              <button
+                type="button"
+                id="open-staging-setup-btn"
+                onClick={() => setIsStagingOpen(true)}
+                className="text-indigo-900 font-bold hover:underline flex items-center space-x-1 pl-2 border-l border-amber-900/20"
+                title="Staging Setup (web-1e643)"
+              >
+                <Building className="w-3 h-3 text-indigo-700" />
+                <span className="hidden sm:inline">Staging (web-1e643)</span>
+                <span className="sm:hidden">Staging</span>
+              </button>
             </div>
           </div>
         </div>
@@ -644,7 +658,13 @@ export default function App() {
         onClose={() => setIsQrStudioOpen(false)}
       />
 
-      {/* 7. DEDICATED PRINT CONTAINER (Hidden in web, visible when printing) */}
+      {/* 7. STAGING DEMO SEED MODAL (ISOLATED TO web-1e643) */}
+      <StagingSeedModal
+        isOpen={isStagingOpen}
+        onClose={() => setIsStagingOpen(false)}
+      />
+
+      {/* 8. DEDICATED PRINT CONTAINER (Hidden in web, visible when printing) */}
       <div className="hidden print:block print-only bg-white text-black p-0 m-0">
         {printAllList && printAllList.length > 0 ? (
           printAllList.map((stu, idx) => (
