@@ -294,7 +294,7 @@ export const CommonLoginModal: React.FC<CommonLoginModalProps> = ({
                       type="email"
                       value={email}
                       onChange={(e) => setEmail(e.target.value)}
-                      placeholder="e.g. admin.scha@staging.internal"
+                      placeholder="e.g. your-email@domain.com"
                       className="w-full pl-10 pr-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm font-medium text-slate-900 placeholder-slate-400 focus:outline-none focus:border-amber-600 focus:bg-white transition-all shadow-xs"
                       required
                     />

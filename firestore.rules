@@ -7,22 +7,31 @@ service cloud.firestore {
       return request.auth != null;
     }
 
+    function isUserDocExists() {
+      return exists(/databases/$(database)/documents/users/$(request.auth.uid));
+    }
+
     function getUserData() {
       return get(/databases/$(database)/documents/users/$(request.auth.uid)).data;
     }
 
     function isSuperAdmin() {
-      return isAuthenticated() && getUserData().role == 'super_admin';
+      return isAuthenticated() && (
+        request.auth.token.email == 'sawnk340@gmail.com' ||
+        (isUserDocExists() && getUserData().role == 'super_admin')
+      );
     }
 
     function isSchoolAdmin(schoolId) {
       return isAuthenticated() && 
+        isUserDocExists() &&
         getUserData().role == 'school_admin' && 
         getUserData().schoolId == schoolId;
     }
 
     function isTeacher(schoolId) {
       return isAuthenticated() && 
+        isUserDocExists() &&
         getUserData().role == 'teacher' && 
         getUserData().schoolId == schoolId;
     }
@@ -35,32 +44,40 @@ service cloud.firestore {
     // 2. User Profiles (`users/{uid}`)
     match /users/{userId} {
       allow read: if isSuperAdmin() || (isAuthenticated() && request.auth.uid == userId);
-      allow write: if isSuperAdmin() || (isAuthenticated() && request.auth.uid == userId);
+      allow create, update: if isSuperAdmin() || (isAuthenticated() && request.auth.uid == userId);
+      allow delete: if isSuperAdmin();
     }
 
     // 3. School Master Collection (`schools/{schoolId}`)
     match /schools/{schoolId} {
-      allow read: if isSuperAdmin() || 
-        (isAuthenticated() && getUserData().schoolId == schoolId) || 
-        !isAuthenticated(); // Allow public basic school lookup
-      allow write: if isSuperAdmin() || isSchoolAdmin(schoolId);
+      allow read: if true; // Public basic school lookup or authenticated read
+      allow create: if isSuperAdmin() || (isAuthenticated() && isSchoolAdmin(request.resource.data.schoolId));
+      allow update: if isSuperAdmin() || isSchoolAdmin(schoolId);
+      allow delete: if isSuperAdmin();
     }
 
     // 4. Teachers Collection (`teachers/{teacherId}`)
     match /teachers/{teacherId} {
       allow read: if isSuperAdmin() || 
-        (isAuthenticated() && getUserData().schoolId == resource.data.schoolId);
-      allow write: if isSuperAdmin() || isSchoolAdmin(resource.data.schoolId);
+        (isAuthenticated() && isUserDocExists() && getUserData().schoolId == resource.data.schoolId);
+      allow create: if isSuperAdmin() || isSchoolAdmin(request.resource.data.schoolId);
+      allow update: if isSuperAdmin() || isSchoolAdmin(resource.data.schoolId);
+      allow delete: if isSuperAdmin() || isSchoolAdmin(resource.data.schoolId);
     }
 
     // 5. Students Collection (`students/{studentId}`)
     match /students/{studentId} {
       allow read: if isSuperAdmin() || 
-        (isAuthenticated() && getUserData().schoolId == resource.data.schoolId) ||
+        (isAuthenticated() && isUserDocExists() && getUserData().schoolId == resource.data.schoolId) ||
         (isAuthenticated() && request.auth.uid == resource.data.authUid);
-      allow write: if isSuperAdmin() || 
+      allow create: if isSuperAdmin() || 
+        isSchoolAdmin(request.resource.data.schoolId) ||
+        isTeacher(request.resource.data.schoolId);
+      allow update: if isSuperAdmin() || 
         isSchoolAdmin(resource.data.schoolId) ||
-        isTeacher(resource.data.schoolId);
+        isTeacher(resource.data.schoolId) ||
+        (isAuthenticated() && request.auth.uid == resource.data.authUid);
+      allow delete: if isSuperAdmin() || isSchoolAdmin(resource.data.schoolId);
     }
 
     // 6. Public QR Verification Tokens (`verifications/{tokenId}`)
@@ -72,7 +89,7 @@ service cloud.firestore {
     // 7. System Audit Logs (`audit_logs/{logId}`)
     match /audit_logs/{logId} {
       allow read: if isSuperAdmin() || 
-        (isAuthenticated() && isSchoolAdmin(resource.data.schoolId));
+        (isAuthenticated() && isUserDocExists() && isSchoolAdmin(resource.data.schoolId));
       allow create: if isAuthenticated();
       allow update, delete: if false; // Immutable audit log
     }
