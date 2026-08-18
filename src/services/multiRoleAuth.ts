@@ -314,6 +314,9 @@ export async function loginWithGoogle(
       throw new Error('Google लॉगिन रद्द कर दिया गया (Sign-in popup closed).');
     } else if (errCode === 'auth/popup-blocked') {
       throw new Error('ब्राउज़र ने Google पॉपअप को ब्लॉक कर दिया। कृपया पॉपअप की अनुमति दें (Popup blocked by browser).');
+    } else if (errCode === 'auth/unauthorized-domain') {
+      const currentHost = typeof window !== 'undefined' ? window.location.hostname : 'current domain';
+      throw new Error(`अनधिकृत डोमेन (Unauthorized Domain): डोमेन '${currentHost}' Firebase Authentication में Authorized Domains सूची में नहीं है। कृपया Firebase Console -> Authentication -> Settings -> Authorized domains में जाकर '${currentHost}' जोड़ें।`);
     } else if (errCode === 'auth/operation-not-allowed') {
       throw new Error('Firebase में Google Sign-In सक्रिय नहीं है या अनुमत नहीं है। कृपया व्यवस्थापक से संपर्क करें।');
     } else {
