@@ -23,6 +23,13 @@ export interface UserProfile {
   displayName: string;
   email: string;
   photoUrl?: string;
+  phone?: string;
+  address?: string;
+  dob?: string;
+  bloodGroup?: string;
+  guardianName?: string;
+  guardianPhone?: string;
+  designation?: string;
   assignedClasses?: string[];  // Specifically for teachers (e.g., ["10-A", "9-B"])
   createdAt: number;           // Unix epoch timestamp (ms)
   lastLoginAt: number;          // Unix epoch timestamp (ms)

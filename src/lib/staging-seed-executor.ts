@@ -116,6 +116,10 @@ export async function executeStagingSeed(options?: {
       authContextDesc = `Authenticated via UI (${currentAuthUser.email})`;
     } catch (authErr: unknown) {
       const { code, message } = parseFirebaseError(authErr);
+      let helperHint = '';
+      if (code === 'auth/invalid-credential' || code === 'auth/wrong-password' || code === 'auth/user-not-found') {
+        helperHint = ' Please use the staging test password (Staging@Test1234) for superadmin@staging.internal on project web-1e643.';
+      }
       return {
         verifiedProjectId: REQUIRED_STAGING_PROJECT_ID,
         isTargetVerified: true,
@@ -125,7 +129,7 @@ export async function executeStagingSeed(options?: {
         failedCount: 8,
         authContext: `Auth Login Failed (${code})`,
         results: [],
-        errorMessage: `Staging Admin Authentication Failed (${code}): ${message}. Ensure superadmin user exists in staging project web-1e643.`
+        errorMessage: `Staging Admin Authentication Failed (${code}): ${message}.${helperHint}`
       };
     }
   }

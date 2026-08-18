@@ -493,3 +493,48 @@ export function exportRecordsToCSV(records: AdminRecord[]): void {
   link.click();
   document.body.removeChild(link);
 }
+
+export function exportRecordsToJSON(records: AdminRecord[]): void {
+  const jsonString = JSON.stringify(records, null, 2);
+  const blob = new Blob([jsonString], { type: 'application/json' });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement('a');
+  link.href = url;
+  link.download = `National_ID_Card_Backup_${new Date().toISOString().slice(0, 10)}.json`;
+  document.body.appendChild(link);
+  link.click();
+  document.body.removeChild(link);
+  URL.revokeObjectURL(url);
+}
+
+export function importRecordsFromJSON(jsonData: string): AdminRecord[] {
+  try {
+    const parsed = JSON.parse(jsonData);
+    if (!Array.isArray(parsed)) {
+      throw new Error('Invalid format: Expected an array of records.');
+    }
+    const current = getSavedRecords();
+    const existingIds = new Set(current.map(r => r.id));
+    const newItems: AdminRecord[] = [];
+    for (const item of parsed) {
+      if (item && item.name) {
+        const id = item.id || `rec-${Date.now()}-${Math.random().toString(36).substr(2, 7)}`;
+        if (!existingIds.has(id)) {
+          newItems.push({
+            ...item,
+            id,
+            createdAt: item.createdAt || new Date().toISOString()
+          });
+          existingIds.add(id);
+        }
+      }
+    }
+    const combined = [...newItems, ...current];
+    inMemoryRecordsCache = combined;
+    safelySaveToLocalStorage(combined);
+    return combined;
+  } catch (err) {
+    console.error('Import error:', err);
+    throw err;
+  }
+}

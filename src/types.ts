@@ -15,6 +15,7 @@ export interface StudentData {
   role: string; // e.g. "Proud Citizen", "Student - Class 10-A", "House Captain"
   className?: string;
   rollNo?: string;
+  guardianName?: string;
   date: string;
   place: string;
   state?: string;

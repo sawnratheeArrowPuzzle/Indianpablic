@@ -39,9 +39,9 @@ export function StagingSeedPanel({ onClose }: StagingSeedPanelProps) {
   const [isLoading, setIsLoading] = useState(false);
   const [seedSummary, setSeedSummary] = useState<StagingSeedSummary | null>(null);
 
-  // Staging Admin Auth fields
+  // Staging Admin Auth fields (Staging-only test credentials for web-1e643)
   const [adminEmail, setAdminEmail] = useState('superadmin@staging.internal');
-  const [adminPassword, setAdminPassword] = useState('');
+  const [adminPassword, setAdminPassword] = useState('Staging@Test1234');
   const [currentAuthUser, setCurrentAuthUser] = useState<string | null>(null);
 
   useEffect(() => {

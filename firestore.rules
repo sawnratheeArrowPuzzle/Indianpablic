@@ -1,9 +1,81 @@
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
-    // Student & Citizen ID Card Records
+
+    // Helper functions for Authentication & RBAC
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+
+    function getUserData() {
+      return get(/databases/$(database)/documents/users/$(request.auth.uid)).data;
+    }
+
+    function isSuperAdmin() {
+      return isAuthenticated() && getUserData().role == 'super_admin';
+    }
+
+    function isSchoolAdmin(schoolId) {
+      return isAuthenticated() && 
+        getUserData().role == 'school_admin' && 
+        getUserData().schoolId == schoolId;
+    }
+
+    function isTeacher(schoolId) {
+      return isAuthenticated() && 
+        getUserData().role == 'teacher' && 
+        getUserData().schoolId == schoolId;
+    }
+
+    // 1. Student & Citizen ID Card Records (Public Card Generator - 100% Preserved)
     match /records/{recordId} {
       allow read, write: if true;
     }
+
+    // 2. User Profiles (`users/{uid}`)
+    match /users/{userId} {
+      allow read: if isSuperAdmin() || (isAuthenticated() && request.auth.uid == userId);
+      allow write: if isSuperAdmin() || (isAuthenticated() && request.auth.uid == userId);
+    }
+
+    // 3. School Master Collection (`schools/{schoolId}`)
+    match /schools/{schoolId} {
+      allow read: if isSuperAdmin() || 
+        (isAuthenticated() && getUserData().schoolId == schoolId) || 
+        !isAuthenticated(); // Allow public basic school lookup
+      allow write: if isSuperAdmin() || isSchoolAdmin(schoolId);
+    }
+
+    // 4. Teachers Collection (`teachers/{teacherId}`)
+    match /teachers/{teacherId} {
+      allow read: if isSuperAdmin() || 
+        (isAuthenticated() && getUserData().schoolId == resource.data.schoolId);
+      allow write: if isSuperAdmin() || isSchoolAdmin(resource.data.schoolId);
+    }
+
+    // 5. Students Collection (`students/{studentId}`)
+    match /students/{studentId} {
+      allow read: if isSuperAdmin() || 
+        (isAuthenticated() && getUserData().schoolId == resource.data.schoolId) ||
+        (isAuthenticated() && request.auth.uid == resource.data.authUid);
+      allow write: if isSuperAdmin() || 
+        isSchoolAdmin(resource.data.schoolId) ||
+        isTeacher(resource.data.schoolId);
+    }
+
+    // 6. Public QR Verification Tokens (`verifications/{tokenId}`)
+    match /verifications/{tokenId} {
+      allow read: if true;
+      allow write: if isSuperAdmin() || isAuthenticated();
+    }
+
+    // 7. System Audit Logs (`audit_logs/{logId}`)
+    match /audit_logs/{logId} {
+      allow read: if isSuperAdmin() || 
+        (isAuthenticated() && isSchoolAdmin(resource.data.schoolId));
+      allow create: if isAuthenticated();
+      allow update, delete: if false; // Immutable audit log
+    }
   }
 }
+
