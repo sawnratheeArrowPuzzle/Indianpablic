@@ -27,7 +27,8 @@ import {
   ExternalLink,
   ChevronRight,
   QrCode,
-  Scan
+  Scan,
+  ShieldCheck
 } from 'lucide-react';
 
 import { StudentData, AdminRecord } from './types';
@@ -40,6 +41,7 @@ import { StagingSeedModal } from './components/StagingSeedModal';
 import { LionEmblemSvg } from './components/LionEmblemSvg';
 import { AshokaChakraSvg } from './components/AshokaChakraSvg';
 import { MultiRolePortalModal } from './components/dashboards/MultiRolePortalModal';
+import { PublicVerificationModal } from './components/PublicVerificationModal';
 import { getSavedRecords, saveUserRecord, deleteUserRecord, clearAllRecords, syncRecordsWithServer } from './utils/storage';
 
 // Default exact 1:1 data matching user reference image
@@ -77,6 +79,8 @@ export default function App() {
   const [isAdminOpen, setIsAdminOpen] = useState(false);
   const [isPortalOpen, setIsPortalOpen] = useState(false);
   const [isQrStudioOpen, setIsQrStudioOpen] = useState(false);
+  const [isVerifyOpen, setIsVerifyOpen] = useState(false);
+  const [verifyToken, setVerifyToken] = useState<string>('');
   const [isStagingOpen, setIsStagingOpen] = useState(false);
   const [printAllList, setPrintAllList] = useState<StudentData[] | null>(null);
   const [records, setRecords] = useState<AdminRecord[]>([]);
@@ -84,6 +88,21 @@ export default function App() {
   const [isSubmitted, setIsSubmitted] = useState<boolean>(false);
 
   const cardRef = useRef<HTMLDivElement | null>(null);
+
+  // Check URL parameters for instant verification (?verify=TOKEN or ?portal=true)
+  useEffect(() => {
+    if (typeof window !== 'undefined' && window.location.search) {
+      const params = new URLSearchParams(window.location.search);
+      const token = params.get('verify');
+      if (token) {
+        setVerifyToken(token);
+        setIsVerifyOpen(true);
+      }
+      if (params.get('portal') === 'true' || params.get('login') === 'true') {
+        setIsPortalOpen(true);
+      }
+    }
+  }, []);
 
   // Load records on start & sync with backend persistent disk store
   useEffect(() => {
@@ -415,6 +434,18 @@ export default function App() {
             <div className="flex items-center space-x-3 text-[11px] shrink-0">
               <button
                 type="button"
+                onClick={() => {
+                  setVerifyToken('');
+                  setIsVerifyOpen(true);
+                }}
+                className="text-emerald-950 font-bold hover:underline flex items-center space-x-1 cursor-pointer bg-emerald-100/80 px-2.5 py-0.5 rounded-full border border-emerald-300"
+              >
+                <ShieldCheck className="w-3 h-3 text-emerald-700" />
+                <span>Verify ID (सत्यापन)</span>
+              </button>
+
+              <button
+                type="button"
                 onClick={() => setIsPortalOpen(true)}
                 className="text-blue-900 font-bold hover:underline flex items-center space-x-1 cursor-pointer"
               >
@@ -680,7 +711,23 @@ export default function App() {
         }}
       />
 
-      {/* 9. DEDICATED PRINT CONTAINER (Hidden in web, visible when printing) */}
+      {/* 9. PUBLIC STUDENT VERIFICATION PORTAL MODAL */}
+      <PublicVerificationModal
+        isOpen={isVerifyOpen}
+        initialToken={verifyToken}
+        onClose={() => {
+          setIsVerifyOpen(false);
+          setVerifyToken('');
+        }}
+        onStudentLoginSuccess={() => {
+          setIsVerifyOpen(false);
+          setVerifyToken('');
+          setIsPortalOpen(true);
+          triggerConfetti();
+        }}
+      />
+
+      {/* 10. DEDICATED PRINT CONTAINER (Hidden in web, visible when printing) */}
       <div className="hidden print:block print-only bg-white text-black p-0 m-0">
         {printAllList && printAllList.length > 0 ? (
           printAllList.map((stu, idx) => (

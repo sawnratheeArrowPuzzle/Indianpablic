@@ -30,9 +30,7 @@ export const MultiRolePortalModal: React.FC<MultiRolePortalModalProps> = ({
         setCurrentUser(session.user);
       }
       const unsubscribe = subscribeToAuthChanges((profile) => {
-        if (profile) {
-          setCurrentUser(profile);
-        }
+        setCurrentUser(profile);
       });
       return () => {
         unsubscribe();

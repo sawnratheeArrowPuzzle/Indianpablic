@@ -8,7 +8,7 @@
 
 // 1. SYSTEM ROLES & STATUS ENUMS
 export type UserRole = 'super_admin' | 'school_admin' | 'teacher' | 'student';
-export type UserAccountStatus = 'active' | 'suspended' | 'pending';
+export type UserAccountStatus = 'active' | 'suspended' | 'pending' | 'disabled';
 export type SchoolStatus = 'active' | 'inactive';
 export type TeacherStatus = 'active' | 'inactive';
 export type StudentStatus = 'active' | 'passed_out' | 'transferred';

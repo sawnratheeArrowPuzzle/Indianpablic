@@ -1133,18 +1133,94 @@ export const SchoolAdminDashboard: React.FC<SchoolAdminDashboardProps> = ({
                 <button
                   type="button"
                   onClick={() => setIsAddingTeacher(false)}
-                  className="px-4 py-2 rounded-xl bg-slate-800 text-slate-300 hover:bg-slate-700 text-xs font-bold"
+                  className="px-4 py-2 rounded-xl bg-slate-800 text-slate-300 hover:bg-slate-700 text-xs font-bold cursor-pointer"
                 >
                   रद्द करें
                 </button>
                 <button
                   type="submit"
-                  className="px-5 py-2 rounded-xl bg-emerald-500 hover:bg-emerald-600 text-white text-xs font-bold shadow-lg"
+                  className="px-5 py-2 rounded-xl bg-emerald-500 hover:bg-emerald-600 text-white text-xs font-bold shadow-lg cursor-pointer"
                 >
                   खाता बनाएं
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* CREATED TEACHER CREDENTIAL SLIP MODAL */}
+      {createdTeacherSlip && (
+        <div className="fixed inset-0 z-[145] bg-slate-950/85 backdrop-blur-sm flex items-center justify-center p-4 animate-fadeIn font-poppins">
+          <div className="w-full max-w-md bg-slate-900 border-2 border-emerald-500/80 rounded-3xl p-6 shadow-2xl relative text-xs">
+            <button
+              onClick={() => setCreatedTeacherSlip(null)}
+              className="absolute right-4 top-4 p-1 text-slate-400 hover:text-white cursor-pointer"
+            >
+              <X className="w-4 h-4" />
+            </button>
+
+            <div className="flex items-center space-x-2.5 text-emerald-400 font-black uppercase mb-4">
+              <CheckCircle2 className="w-5 h-5 shrink-0" />
+              <span className="text-sm">शिक्षक खाता सक्रिय (Teacher Credential Slip)</span>
+            </div>
+
+            <div className="p-4 bg-slate-950 rounded-2xl border border-emerald-500/30 space-y-2.5 text-slate-200">
+              <div className="flex justify-between items-center border-b border-slate-800 pb-2">
+                <span className="text-slate-400">शिक्षक का नाम:</span>
+                <strong className="text-white text-sm">{createdTeacherSlip.teacher.name}</strong>
+              </div>
+              <div className="flex justify-between items-center border-b border-slate-800 pb-2">
+                <span className="text-slate-400">पदनाम / विषय:</span>
+                <span className="text-amber-300 font-semibold">{createdTeacherSlip.teacher.designation}</span>
+              </div>
+              <div className="flex justify-between items-center border-b border-slate-800 pb-2">
+                <span className="text-slate-400">लॉगिन ईमेल:</span>
+                <span className="font-mono text-cyan-300">{createdTeacherSlip.teacher.email}</span>
+              </div>
+              <div className="flex justify-between items-center border-b border-slate-800 pb-2">
+                <span className="text-slate-400">शिक्षक ID:</span>
+                <span className="font-mono text-slate-300">{createdTeacherSlip.teacher.teacherId}</span>
+              </div>
+              <div className="flex justify-between items-center border-b border-slate-800 pb-2">
+                <span className="text-slate-400">आवंटित कक्षाएं:</span>
+                <span className="text-emerald-300 font-bold">{createdTeacherSlip.teacher.assignedClasses.join(', ')}</span>
+              </div>
+              <div className="flex justify-between items-center pt-1">
+                <span className="text-slate-400">अस्थायी पासवर्ड:</span>
+                <strong className="font-mono text-emerald-400 bg-emerald-950/80 px-2.5 py-1 rounded-lg border border-emerald-500/50">
+                  {createdTeacherSlip.password}
+                </strong>
+              </div>
+            </div>
+
+            <p className="text-[11px] text-slate-400 mt-3">
+              सुरक्षा कारणों से यह पासवर्ड डेटाबेस में संग्रहीत नहीं किया जाता है। कृपया यह क्रेडेंशियल स्लिप संबंधित शिक्षक को सुरक्षित रूप से सौंपें।
+            </p>
+
+            <div className="mt-4 flex space-x-2">
+              <button
+                type="button"
+                onClick={() => {
+                  const txt = `IndianPublic - Teacher Login Credentials\nName: ${createdTeacherSlip.teacher.name}\nEmail: ${createdTeacherSlip.teacher.email}\nTemporary Password: ${createdTeacherSlip.password}\nClasses: ${createdTeacherSlip.teacher.assignedClasses.join(', ')}`;
+                  navigator.clipboard.writeText(txt);
+                  setCopiedSlip(true);
+                  setTimeout(() => setCopiedSlip(false), 2500);
+                }}
+                className="w-1/2 py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 font-bold flex items-center justify-center space-x-1.5 cursor-pointer"
+              >
+                {copiedSlip ? <Check className="w-4 h-4 text-emerald-400" /> : <Copy className="w-4 h-4" />}
+                <span>{copiedSlip ? 'कॉपी हो गया' : 'विवरण कॉपी करें'}</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setCreatedTeacherSlip(null)}
+                className="w-1/2 py-2.5 rounded-xl bg-emerald-500 hover:bg-emerald-600 text-white font-bold flex items-center justify-center space-x-1 cursor-pointer shadow-lg"
+              >
+                <span>पूर्ण (Done)</span>
+              </button>
+            </div>
           </div>
         </div>
       )}

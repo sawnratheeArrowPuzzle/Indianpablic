@@ -25,13 +25,14 @@ interface TeacherIdCardProps {
 }
 
 export const TeacherIdCard: React.FC<TeacherIdCardProps> = ({ data, isBackView = false }) => {
+  const assignedList = Array.isArray(data.assignedClasses) ? data.assignedClasses : [];
   const qrData = JSON.stringify({
     type: 'INDIANPUBLIC_TEACHER_CREDENTIAL',
-    id: data.teacherId,
-    name: data.name,
-    designation: data.designation,
-    school: data.schoolName,
-    classes: data.assignedClasses,
+    id: data.teacherId || '',
+    name: data.name || '',
+    designation: data.designation || '',
+    school: data.schoolName || '',
+    classes: assignedList,
     verified: true,
   });
 
@@ -73,7 +74,7 @@ export const TeacherIdCard: React.FC<TeacherIdCardProps> = ({ data, isBackView =
               <div>
                 <span className="text-[10px] font-bold text-emerald-300 block uppercase">असाइन कक्षाएं (Assigned Classes)</span>
                 <div className="flex flex-wrap gap-1 mt-0.5">
-                  {data.assignedClasses.map(c => (
+                  {assignedList.map(c => (
                     <span key={c} className="bg-emerald-500/20 text-emerald-200 text-[10px] font-bold px-2 py-0.5 rounded border border-emerald-400/30">
                       {c}
                     </span>
@@ -193,7 +194,7 @@ export const TeacherIdCard: React.FC<TeacherIdCardProps> = ({ data, isBackView =
               ID: {data.teacherId}
             </span>
             <span className="text-[9.5px] font-bold text-amber-300 bg-amber-400/10 px-2 py-0.5 rounded-md border border-amber-400/30">
-              Class: {data.assignedClasses.join(', ')}
+              Class: {assignedList.join(', ')}
             </span>
           </div>
         </div>

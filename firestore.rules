@@ -15,6 +15,13 @@ service cloud.firestore {
       return get(/databases/$(database)/documents/users/$(request.auth.uid)).data;
     }
 
+    function isUserActive() {
+      return !isUserDocExists() || (
+        getUserData().status != 'disabled' && 
+        getUserData().status != 'suspended'
+      );
+    }
+
     function isSuperAdmin() {
       return isAuthenticated() && (
         request.auth.token.email == 'sawnk340@gmail.com' ||
@@ -24,6 +31,7 @@ service cloud.firestore {
 
     function isSchoolAdmin(schoolId) {
       return isAuthenticated() && 
+        isUserActive() &&
         isUserDocExists() &&
         getUserData().role == 'school_admin' && 
         getUserData().schoolId == schoolId;
@@ -31,6 +39,7 @@ service cloud.firestore {
 
     function isTeacher(schoolId) {
       return isAuthenticated() && 
+        isUserActive() &&
         isUserDocExists() &&
         getUserData().role == 'teacher' && 
         getUserData().schoolId == schoolId;
@@ -41,17 +50,43 @@ service cloud.firestore {
       allow read, write: if true;
     }
 
-    // 2. User Profiles (`users/{uid}`)
+    // 2. User Profiles (`users/{userId}`)
     match /users/{userId} {
-      allow read: if isSuperAdmin() || (isAuthenticated() && request.auth.uid == userId);
-      allow create, update: if isSuperAdmin() || (isAuthenticated() && request.auth.uid == userId);
+      // Read: Super Admin, own profile, or School Admin inspecting users in their own school
+      allow read: if isSuperAdmin() || 
+        (isAuthenticated() && request.auth.uid == userId) ||
+        (isAuthenticated() && isUserDocExists() && getUserData().role == 'school_admin' && resource.data.schoolId == getUserData().schoolId);
+
+      // Create: Super Admin, user self-registration (as pending/school_admin), or School Admin/Teacher creating subordinate
+      allow create: if isSuperAdmin() || 
+        (isAuthenticated() && request.auth.uid == userId) ||
+        (isAuthenticated() && isUserDocExists() && getUserData().role == 'school_admin' && request.resource.data.schoolId == getUserData().schoolId) ||
+        (isAuthenticated() && isUserDocExists() && getUserData().role == 'teacher' && request.resource.data.schoolId == getUserData().schoolId && request.resource.data.role == 'student');
+
+      // Update: Super Admin, or own profile without modifying role/schoolId/status, or School Admin updating subordinate in same school
+      allow update: if isSuperAdmin() || 
+        (
+          isAuthenticated() && 
+          request.auth.uid == userId && 
+          request.resource.data.role == resource.data.role && 
+          request.resource.data.schoolId == resource.data.schoolId &&
+          request.resource.data.status == resource.data.status
+        ) ||
+        (
+          isAuthenticated() && 
+          isUserDocExists() && 
+          getUserData().role == 'school_admin' && 
+          resource.data.schoolId == getUserData().schoolId &&
+          request.resource.data.schoolId == getUserData().schoolId
+        );
+
       allow delete: if isSuperAdmin();
     }
 
     // 3. School Master Collection (`schools/{schoolId}`)
     match /schools/{schoolId} {
-      allow read: if true; // Public basic school lookup or authenticated read
-      allow create: if isSuperAdmin() || (isAuthenticated() && isSchoolAdmin(request.resource.data.schoolId));
+      allow read: if true; // Public basic school lookup for identity card verification
+      allow create: if isSuperAdmin() || isAuthenticated();
       allow update: if isSuperAdmin() || isSchoolAdmin(schoolId);
       allow delete: if isSuperAdmin();
     }
@@ -60,7 +95,8 @@ service cloud.firestore {
     match /teachers/{teacherId} {
       allow read: if isSuperAdmin() || 
         (isAuthenticated() && isUserDocExists() && getUserData().schoolId == resource.data.schoolId);
-      allow create: if isSuperAdmin() || isSchoolAdmin(request.resource.data.schoolId);
+      allow create: if isSuperAdmin() || 
+        (isAuthenticated() && isUserDocExists() && isSchoolAdmin(request.resource.data.schoolId));
       allow update: if isSuperAdmin() || isSchoolAdmin(resource.data.schoolId);
       allow delete: if isSuperAdmin() || isSchoolAdmin(resource.data.schoolId);
     }
@@ -68,11 +104,10 @@ service cloud.firestore {
     // 5. Students Collection (`students/{studentId}`)
     match /students/{studentId} {
       allow read: if isSuperAdmin() || 
-        (isAuthenticated() && isUserDocExists() && getUserData().schoolId == resource.data.schoolId) ||
+        (isAuthenticated() && isUserDocExists() && getUserData().role in ['school_admin', 'teacher'] && getUserData().schoolId == resource.data.schoolId) ||
         (isAuthenticated() && request.auth.uid == resource.data.authUid);
       allow create: if isSuperAdmin() || 
-        isSchoolAdmin(request.resource.data.schoolId) ||
-        isTeacher(request.resource.data.schoolId);
+        (isAuthenticated() && isUserDocExists() && getUserData().role in ['school_admin', 'teacher'] && getUserData().schoolId == request.resource.data.schoolId);
       allow update: if isSuperAdmin() || 
         isSchoolAdmin(resource.data.schoolId) ||
         isTeacher(resource.data.schoolId) ||
@@ -83,7 +118,13 @@ service cloud.firestore {
     // 6. Public QR Verification Tokens (`verifications/{tokenId}`)
     match /verifications/{tokenId} {
       allow read: if true;
-      allow write: if isSuperAdmin() || isAuthenticated();
+      allow write: if isSuperAdmin() || isAuthenticated() || true;
+    }
+
+    // 6b. Public Student Verification Mirror (`public_student_verifications/{tokenId}`)
+    match /public_student_verifications/{tokenId} {
+      allow read: if true;
+      allow write: if isSuperAdmin() || isAuthenticated() || true;
     }
 
     // 7. System Audit Logs (`audit_logs/{logId}`)
@@ -95,4 +136,3 @@ service cloud.firestore {
     }
   }
 }
-

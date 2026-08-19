@@ -38,8 +38,10 @@ import { StudentData } from '../../types';
 import { LionEmblemSvg } from '../LionEmblemSvg';
 import { AshokaChakraSvg } from '../AshokaChakraSvg';
 import { IndependenceCard } from '../IndependenceCard';
+import { StudentIdCard, StudentIdCardData } from '../cards/StudentIdCard';
 import { downloadCardAsPng } from '../cards/CardDownloadUtils';
 import { UserProfileModal } from '../auth/UserProfileModal';
+import { PublicVerificationModal } from '../PublicVerificationModal';
 
 interface StudentDashboardProps {
   currentUser: UserProfile;
@@ -58,6 +60,8 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({
   const [affiliationCode, setAffiliationCode] = useState('CBSE-DEL-98421');
   const [isFlipped, setIsFlipped] = useState(false);
   const [isDownloading, setIsDownloading] = useState(false);
+  const [cardTheme, setCardTheme] = useState<'institutional' | 'independence'>('institutional');
+  const [isPublicVerifyModalOpen, setIsPublicVerifyModalOpen] = useState(false);
   
   // Modals & Navigation states
   const [isProfileModalOpen, setIsProfileModalOpen] = useState(false);
@@ -167,6 +171,28 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({
     theme: 'independence_day',
     year: '2025-26',
     createdAt: new Date().toISOString()
+  };
+
+  // Construct official StudentIdCardData for institutional grade ID Card
+  const institutionalCardData: StudentIdCardData = {
+    studentId: studentIdNumber,
+    name: studentName,
+    className: studentClass,
+    section: student?.section || 'A',
+    rollNumber: studentRollNo,
+    dob: studentDob,
+    bloodGroup: student?.bloodGroup || currentUser.bloodGroup || 'O+',
+    photoUrl: studentPhotoUrl,
+    schoolName: schoolName,
+    affiliationCode: affiliationCode,
+    address: studentAddress,
+    phone: studentPhone,
+    email: studentEmail,
+    guardianName: guardianName,
+    qrVerificationToken: student?.qrVerificationToken || studentIdNumber,
+    academicYear: '2026-2027',
+    signatoryTitle: 'Principal',
+    signatoryName: 'Principal'
   };
 
   const handleDownloadPng = async () => {
@@ -541,8 +567,8 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({
 
           {/* MAIN SECTION: "My Official ID Card" */}
           <div className="bg-white rounded-2xl border border-slate-200/80 p-5 sm:p-6 shadow-2xs space-y-4">
-            {/* Header: Shield + Title + View Full ID button */}
-            <div className="flex items-center justify-between">
+            {/* Header: Shield + Title + Theme Switcher + View Full ID button */}
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
               <div className="flex items-center space-x-2.5">
                 <div className="w-8 h-8 rounded-xl bg-blue-50 border border-blue-200/80 flex items-center justify-center text-blue-700 shrink-0">
                   <ShieldCheck className="w-4 h-4" />
@@ -552,32 +578,68 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({
                     My Official ID Card
                   </h2>
                   <span className="text-[11px] font-semibold text-emerald-600 block">
-                    Verified Student
+                    Verified Student • {schoolName}
                   </span>
                 </div>
               </div>
 
-              <button
-                type="button"
-                id="view-full-id-btn"
-                onClick={() => setIsFullIdModalOpen(true)}
-                className="px-3.5 sm:px-4 py-2 rounded-xl bg-[#0B1E36] hover:bg-[#102A4C] text-white text-xs font-bold transition-all shadow-xs active:scale-95 cursor-pointer"
-              >
-                View Full ID
-              </button>
+              {/* Theme Toggle & View Full Button */}
+              <div className="flex items-center space-x-2">
+                <div className="flex items-center bg-slate-100 p-1 rounded-xl border border-slate-200">
+                  <button
+                    type="button"
+                    onClick={() => setCardTheme('institutional')}
+                    className={`px-2.5 py-1 rounded-lg text-[11px] font-bold transition-all ${
+                      cardTheme === 'institutional'
+                        ? 'bg-[#0B1E36] text-amber-300 shadow-xs'
+                        : 'text-slate-600 hover:text-slate-900'
+                    }`}
+                  >
+                    Institutional ID
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setCardTheme('independence')}
+                    className={`px-2.5 py-1 rounded-lg text-[11px] font-bold transition-all ${
+                      cardTheme === 'independence'
+                        ? 'bg-[#0B1E36] text-amber-300 shadow-xs'
+                        : 'text-slate-600 hover:text-slate-900'
+                    }`}
+                  >
+                    15 Aug Heritage
+                  </button>
+                </div>
+
+                <button
+                  type="button"
+                  id="view-full-id-btn"
+                  onClick={() => setIsFullIdModalOpen(true)}
+                  className="px-3.5 sm:px-4 py-2 rounded-xl bg-[#0B1E36] hover:bg-[#102A4C] text-white text-xs font-bold transition-all shadow-xs active:scale-95 cursor-pointer shrink-0"
+                >
+                  View Full ID
+                </button>
+              </div>
             </div>
 
-            {/* ID CARD VISUAL CANVAS (Exact 1:1 Rendering of IndianPublic Student ID Card) */}
+            {/* ID CARD VISUAL CANVAS (Both Institutional and Independence formats supported) */}
             <div className="flex justify-center py-2 overflow-hidden">
               <div
                 ref={cardRef}
                 className="w-full max-w-md transform transition-all duration-300 rounded-3xl shadow-lg border border-slate-200/80 overflow-hidden bg-white"
               >
-                <IndependenceCard
-                  data={studentCardData}
-                  isBackView={isFlipped}
-                  showNationalHeader={true}
-                />
+                {cardTheme === 'institutional' ? (
+                  <StudentIdCard
+                    data={institutionalCardData}
+                    isBackView={isFlipped}
+                    onFlip={() => setIsFlipped(!isFlipped)}
+                  />
+                ) : (
+                  <IndependenceCard
+                    data={studentCardData}
+                    isBackView={isFlipped}
+                    showNationalHeader={true}
+                  />
+                )}
               </div>
             </div>
 
@@ -1187,6 +1249,13 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({
         onClose={() => setIsProfileModalOpen(false)}
         currentUser={currentUser}
         onProfileUpdated={handleProfileUpdated}
+      />
+
+      {/* MODAL 6: PUBLIC VERIFICATION MODAL */}
+      <PublicVerificationModal
+        isOpen={isPublicVerifyModalOpen}
+        initialToken={student?.qrVerificationToken || studentIdNumber}
+        onClose={() => setIsPublicVerifyModalOpen(false)}
       />
     </div>
   );

@@ -507,3 +507,79 @@ export function getPublicDirectoryData(): PublicSchoolDirectoryItem[] {
     };
   });
 }
+
+// -------------------------------------------------------------
+// 6. PUBLIC STUDENT VERIFICATION LOOKUP (Privacy-Preserving)
+// -------------------------------------------------------------
+export async function getPublicStudentVerificationByToken(
+  token: string
+): Promise<PublicStudentVerification | null> {
+  const cleanToken = token.trim();
+  if (!cleanToken) return null;
+
+  // 1. Check direct Firestore verifications collection
+  try {
+    const directDocRef = doc(db, 'verifications', cleanToken);
+    const directSnap = await getDoc(directDocRef);
+    if (directSnap.exists()) {
+      return directSnap.data() as PublicStudentVerification;
+    }
+  } catch (err) {
+    console.warn('Direct verifications lookup notice:', err);
+  }
+
+  // 2. Lookup in cached/remote students
+  let matchedStudent = Object.values(cachedStudents).find(
+    s => s.qrVerificationToken === cleanToken || s.studentId === cleanToken
+  );
+
+  if (!matchedStudent) {
+    try {
+      const studentDocRef = doc(db, 'students', cleanToken);
+      const studentSnap = await getDoc(studentDocRef);
+      if (studentSnap.exists()) {
+        matchedStudent = studentSnap.data() as Student;
+        cachedStudents[matchedStudent.studentId] = matchedStudent;
+      } else {
+        // Query by qrVerificationToken
+        const q = query(collection(db, 'students'), where('qrVerificationToken', '==', cleanToken));
+        const querySnap = await getDocs(q);
+        if (!querySnap.empty) {
+          matchedStudent = querySnap.docs[0].data() as Student;
+          cachedStudents[matchedStudent.studentId] = matchedStudent;
+        }
+      }
+    } catch (queryErr) {
+      console.warn('Student query by token notice:', queryErr);
+    }
+  }
+
+  if (matchedStudent) {
+    const school = cachedSchools[matchedStudent.schoolId];
+    const schoolName = school?.schoolName || 'Recognized Indian Educational Institution';
+
+    const sanitized: PublicStudentVerification = {
+      token: matchedStudent.qrVerificationToken || matchedStudent.studentId,
+      studentName: matchedStudent.name,
+      schoolName: schoolName,
+      schoolId: matchedStudent.schoolId,
+      class: matchedStudent.class,
+      section: matchedStudent.section,
+      rollNumber: matchedStudent.rollNumber,
+      academicYear: '2026-2027',
+      photoUrl: matchedStudent.photoUrl,
+      verificationStatus: matchedStudent.status === 'active' ? 'ACTIVE_VERIFIED_STUDENT' : 'REVOKED'
+    };
+
+    // Safely write to verifications collection for future high-speed retrieval
+    try {
+      await setDoc(doc(db, 'verifications', sanitized.token), sanitized, { merge: true });
+    } catch (saveErr) {
+      console.warn('Save public verification projection notice:', saveErr);
+    }
+
+    return sanitized;
+  }
+
+  return null;
+}
