@@ -1,61 +1,55 @@
 @import "tailwindcss";
 
 @layer base {
-  html, body {
+  :root {
+    --font-display: 'Plus Jakarta Sans', system-ui, -apple-system, sans-serif;
+    --font-body: 'DM Sans', system-ui, -apple-system, sans-serif;
+    --font-mono: 'JetBrains Mono', ui-monospace, SFMono-Regular, monospace;
+  }
+
+  html {
+    font-family: var(--font-body);
+    scroll-behavior: smooth;
+    -webkit-text-size-adjust: 100%;
+  }
+
+  body {
     margin: 0;
     padding: 0;
     width: 100%;
     max-width: 100%;
     overflow-x: hidden;
-    background-color: #FAF7F0;
-    -webkit-text-size-adjust: 100%;
+    background-color: #F8FAFC;
+    color: #0B1E36;
   }
 
-  #root {
-    width: 100%;
-    max-width: 100%;
-    overflow-x: hidden;
-    min-height: 100vh;
-    background-color: #FAF7F0;
+  h1, h2, h3, h4, .font-display {
+    font-family: var(--font-display);
   }
 
-  .font-cinzel {
-    font-family: 'Cinzel', serif;
+  .font-mono-num {
+    font-family: var(--font-mono);
+    font-variant-numeric: tabular-nums;
   }
-  .font-playfair {
-    font-family: 'Playfair Display', serif;
-  }
-  .font-poppins {
-    font-family: 'Poppins', sans-serif;
-  }
-  .font-montserrat {
-    font-family: 'Montserrat', sans-serif;
-  }
-  .font-signature {
-    font-family: 'Great Vibes', cursive;
-  }
-  .font-hindi {
-    font-family: 'Tiro Devanagari Hindi', 'Rozha One', serif;
+
+  .tabular-nums {
+    font-variant-numeric: tabular-nums;
   }
 }
 
-@media print {
-  body {
-    background: white !important;
-    color: black !important;
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
   }
-  .no-print {
-    display: none !important;
-  }
-  .print-only {
-    display: block !important;
-  }
-  .print-page-break {
-    page-break-after: always;
-    break-after: page;
-  }
-  @page {
-    size: auto;
-    margin: 10mm;
-  }
+}
+
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+.no-scrollbar {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
 }

@@ -1,34 +1,255 @@
 {
-  "$schema": "https://firebase.google.com/docs/firestore/blueprint-schema.json",
   "entities": {
-    "records": {
-      "fields": {
-        "id": { "type": "string", "description": "Unique ID for the card record" },
-        "idNumber": { "type": "string", "description": "Government card registration ID" },
-        "name": { "type": "string", "description": "Full name of the student/citizen" },
-        "phone": { "type": "string", "description": "Contact phone number" },
-        "dob": { "type": "string", "description": "Date of birth" },
-        "role": { "type": "string", "description": "Designation or class role" },
-        "date": { "type": "string", "description": "Card celebration date" },
-        "place": { "type": "string", "description": "City or place" },
-        "state": { "type": "string", "description": "State name" },
-        "year": { "type": "string", "description": "Celebration year" },
-        "photoUrl": { "type": "string", "description": "Photo data URL or image link" },
-        "schoolName": { "type": "string", "description": "Institution or school name" },
-        "eventTitle": { "type": "string", "description": "Event main title" },
-        "eventSubtitle": { "type": "string", "description": "Event subtitle" },
-        "bannerText": { "type": "string", "description": "Banner or certification title" },
-        "badgeTitle": { "type": "string", "description": "Badge upper text" },
-        "badgeSubtitle": { "type": "string", "description": "Badge middle text" },
-        "badgeCategory": { "type": "string", "description": "Badge bottom text" },
-        "signatoryName": { "type": "string", "description": "Authorized signatory name" },
-        "signatoryTitle": { "type": "string", "description": "Authorized signatory title" },
-        "signatoryAuthority": { "type": "string", "description": "Authority name" },
-        "mottoText": { "type": "string", "description": "Motto text on card" },
-        "theme": { "type": "string", "description": "Card theme" },
-        "createdAt": { "type": "string", "description": "Creation ISO timestamp" },
-        "downloadCount": { "type": "number", "description": "Number of card downloads" }
-      }
+    "User": {
+      "title": "User",
+      "description": "SavvvnLab registered member or administrator profile",
+      "type": "object",
+      "properties": {
+        "uid": { "type": "string", "minLength": 1, "maxLength": 128 },
+        "email": { "type": "string", "format": "email", "maxLength": 254 },
+        "displayName": { "type": "string", "minLength": 1, "maxLength": 120 },
+        "photoURL": { "type": "string", "maxLength": 1000 },
+        "phone": { "type": "string", "maxLength": 32 },
+        "role": { "type": "string", "enum": ["member", "admin"] },
+        "status": { "type": "string", "enum": ["active", "suspended"] },
+        "referralCode": { "type": "string", "minLength": 4, "maxLength": 32, "pattern": "^[A-Z0-9\\-]+$" },
+        "referredByUid": { "type": "string", "maxLength": 128 },
+        "referredByCode": { "type": "string", "maxLength": 32 },
+        "upiId": { "type": "string", "maxLength": 120 },
+        "unlockedPackageIds": { "type": "array" },
+        "createdAt": { "type": "string" },
+        "updatedAt": { "type": "string" }
+      },
+      "required": ["uid", "email", "displayName", "role", "status", "referralCode", "createdAt"]
+    },
+    "Package": {
+      "title": "Package",
+      "description": "SavvvnLab learning package with included courses",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "maxLength": 64 },
+        "slug": { "type": "string", "maxLength": 64 },
+        "name": { "type": "string", "minLength": 2, "maxLength": 100 },
+        "subtitle": { "type": "string", "maxLength": 160 },
+        "description": { "type": "string", "maxLength": 1200 },
+        "price": { "type": "number" },
+        "originalPrice": { "type": "number" },
+        "commissionRate": { "type": "number" },
+        "benefits": { "type": "array" },
+        "coverImageUrl": { "type": "string", "maxLength": 2000 },
+        "active": { "type": "boolean" },
+        "featured": { "type": "boolean" },
+        "sortOrder": { "type": "number" },
+        "createdAt": { "type": "string" }
+      },
+      "required": ["id", "name", "price", "active", "createdAt"]
+    },
+    "Course": {
+      "title": "Course",
+      "description": "Skill training course unlocked via packages",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "maxLength": 64 },
+        "title": { "type": "string", "minLength": 2, "maxLength": 120 },
+        "category": { "type": "string", "maxLength": 60 },
+        "description": { "type": "string", "maxLength": 1200 },
+        "thumbnail": { "type": "string", "maxLength": 500 },
+        "instructor": { "type": "string", "maxLength": 100 },
+        "lessons": { "type": "array" },
+        "active": { "type": "boolean" },
+        "createdAt": { "type": "string" }
+      },
+      "required": ["id", "title", "category", "active", "createdAt"]
+    },
+    "PackageCourse": {
+      "title": "PackageCourse",
+      "description": "Mapping between a package and an included course",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "maxLength": 128 },
+        "packageId": { "type": "string", "maxLength": 64 },
+        "courseId": { "type": "string", "maxLength": 64 },
+        "sortOrder": { "type": "number" }
+      },
+      "required": ["id", "packageId", "courseId"]
+    },
+    "Order": {
+      "title": "Order",
+      "description": "Package purchase order",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "maxLength": 64 },
+        "userId": { "type": "string", "maxLength": 128 },
+        "userEmail": { "type": "string", "maxLength": 254 },
+        "packageId": { "type": "string", "maxLength": 64 },
+        "packageName": { "type": "string", "maxLength": 100 },
+        "amount": { "type": "number" },
+        "sponsorUid": { "type": "string", "maxLength": 128 },
+        "referralCode": { "type": "string", "maxLength": 32 },
+        "status": { "type": "string", "enum": ["awaiting_payment", "pending_verification", "paid", "rejected", "refunded"] },
+        "createdAt": { "type": "string" },
+        "updatedAt": { "type": "string" }
+      },
+      "required": ["id", "userId", "packageId", "amount", "status", "createdAt"]
+    },
+    "Payment": {
+      "title": "Payment",
+      "description": "UPI payment proof awaiting manual admin verification",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "maxLength": 64 },
+        "orderId": { "type": "string", "maxLength": 64 },
+        "userId": { "type": "string", "maxLength": 128 },
+        "packageId": { "type": "string", "maxLength": 64 },
+        "amount": { "type": "number" },
+        "utr": { "type": "string", "minLength": 8, "maxLength": 40 },
+        "screenshotUrl": { "type": "string", "maxLength": 900000 },
+        "upiIdPaidTo": { "type": "string", "maxLength": 120 },
+        "status": { "type": "string", "enum": ["pending", "approved", "rejected"] },
+        "adminNote": { "type": "string", "maxLength": 500 },
+        "verifiedBy": { "type": "string", "maxLength": 128 },
+        "verifiedAt": { "type": "string" },
+        "createdAt": { "type": "string" }
+      },
+      "required": ["id", "orderId", "userId", "amount", "utr", "status", "createdAt"]
+    },
+    "Referral": {
+      "title": "Referral",
+      "description": "Immutable referral attribution link",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "maxLength": 128 },
+        "sponsorUid": { "type": "string", "maxLength": 128 },
+        "referredUid": { "type": "string", "maxLength": 128 },
+        "referralCode": { "type": "string", "maxLength": 32 },
+        "createdAt": { "type": "string" }
+      },
+      "required": ["id", "sponsorUid", "referredUid", "referralCode", "createdAt"]
+    },
+    "CommissionLedger": {
+      "title": "CommissionLedger",
+      "description": "Server-controlled referral commission ledger",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "maxLength": 64 },
+        "orderId": { "type": "string", "maxLength": 64 },
+        "beneficiaryUid": { "type": "string", "maxLength": 128 },
+        "buyerUid": { "type": "string", "maxLength": 128 },
+        "packageId": { "type": "string", "maxLength": 64 },
+        "saleAmount": { "type": "number" },
+        "commissionAmount": { "type": "number" },
+        "status": { "type": "string", "enum": ["pending", "approved", "reversed"] },
+        "createdAt": { "type": "string" }
+      },
+      "required": ["id", "orderId", "beneficiaryUid", "buyerUid", "commissionAmount", "status", "createdAt"]
+    },
+    "WalletLedger": {
+      "title": "WalletLedger",
+      "description": "Immutable wallet credit and debit ledger",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "maxLength": 64 },
+        "userId": { "type": "string", "maxLength": 128 },
+        "type": { "type": "string", "enum": ["commission_credit", "withdrawal_debit", "withdrawal_refund", "commission_reversal"] },
+        "amount": { "type": "number" },
+        "referenceId": { "type": "string", "maxLength": 64 },
+        "description": { "type": "string", "maxLength": 300 },
+        "createdAt": { "type": "string" }
+      },
+      "required": ["id", "userId", "type", "amount", "createdAt"]
+    },
+    "Withdrawal": {
+      "title": "Withdrawal",
+      "description": "Member UPI withdrawal request",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "maxLength": 64 },
+        "userId": { "type": "string", "maxLength": 128 },
+        "amount": { "type": "number" },
+        "upiId": { "type": "string", "maxLength": 120 },
+        "status": { "type": "string", "enum": ["pending", "approved", "paid", "rejected"] },
+        "payoutReference": { "type": "string", "maxLength": 120 },
+        "adminNote": { "type": "string", "maxLength": 300 },
+        "createdAt": { "type": "string" }
+      },
+      "required": ["id", "userId", "amount", "upiId", "status", "createdAt"]
+    },
+    "AdminSettings": {
+      "title": "AdminSettings",
+      "description": "Website, UPI, and commission configuration",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "maxLength": 64 },
+        "siteName": { "type": "string", "maxLength": 80 },
+        "tagline": { "type": "string", "maxLength": 160 },
+        "upiId": { "type": "string", "maxLength": 120 },
+        "upiPayeeName": { "type": "string", "maxLength": 120 },
+        "minWithdrawal": { "type": "number" },
+        "defaultCommissionPercent": { "type": "number" },
+        "autoApproveCommission": { "type": "boolean" }
+      },
+      "required": ["id", "siteName"]
+    },
+    "Notification": {
+      "title": "Notification",
+      "description": "User and system notifications",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "maxLength": 64 },
+        "userId": { "type": "string", "maxLength": 128 },
+        "title": { "type": "string", "maxLength": 140 },
+        "message": { "type": "string", "maxLength": 500 },
+        "read": { "type": "boolean" },
+        "createdAt": { "type": "string" }
+      },
+      "required": ["id", "userId", "title", "message", "read", "createdAt"]
+    },
+    "SupportTicket": {
+      "title": "SupportTicket",
+      "description": "Customer support ticket or contact inquiry",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "maxLength": 64 },
+        "userId": { "type": "string", "maxLength": 128 },
+        "name": { "type": "string", "maxLength": 120 },
+        "email": { "type": "string", "maxLength": 254 },
+        "subject": { "type": "string", "maxLength": 160 },
+        "message": { "type": "string", "maxLength": 2000 },
+        "status": { "type": "string", "enum": ["open", "in_progress", "resolved"] },
+        "adminReply": { "type": "string", "maxLength": 2000 },
+        "createdAt": { "type": "string" }
+      },
+      "required": ["id", "name", "email", "subject", "message", "status", "createdAt"]
+    },
+    "AuditLog": {
+      "title": "AuditLog",
+      "description": "Immutable administrative and financial audit log",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "maxLength": 64 },
+        "actorUid": { "type": "string", "maxLength": 128 },
+        "actorEmail": { "type": "string", "maxLength": 254 },
+        "action": { "type": "string", "maxLength": 120 },
+        "targetPath": { "type": "string", "maxLength": 200 },
+        "createdAt": { "type": "string" }
+      },
+      "required": ["id", "actorUid", "action", "createdAt"]
     }
+  },
+  "firestore": {
+    "/users/{userId}": { "schema": { "$ref": "#/entities/User" }, "description": "User profiles" },
+    "/packages/{packageId}": { "schema": { "$ref": "#/entities/Package" }, "description": "Package catalog" },
+    "/courses/{courseId}": { "schema": { "$ref": "#/entities/Course" }, "description": "Course catalog" },
+    "/packageCourses/{mappingId}": { "schema": { "$ref": "#/entities/PackageCourse" }, "description": "Package-course relations" },
+    "/orders/{orderId}": { "schema": { "$ref": "#/entities/Order" }, "description": "Package purchase orders" },
+    "/payments/{paymentId}": { "schema": { "$ref": "#/entities/Payment" }, "description": "UPI payment submissions" },
+    "/referrals/{referralId}": { "schema": { "$ref": "#/entities/Referral" }, "description": "Referral attribution records" },
+    "/commissionLedger/{entryId}": { "schema": { "$ref": "#/entities/CommissionLedger" }, "description": "Commission ledger" },
+    "/walletLedger/{entryId}": { "schema": { "$ref": "#/entities/WalletLedger" }, "description": "Wallet ledger" },
+    "/withdrawals/{withdrawalId}": { "schema": { "$ref": "#/entities/Withdrawal" }, "description": "Withdrawal requests" },
+    "/adminSettings/{settingId}": { "schema": { "$ref": "#/entities/AdminSettings" }, "description": "Platform settings" },
+    "/notifications/{notificationId}": { "schema": { "$ref": "#/entities/Notification" }, "description": "Notifications" },
+    "/supportTickets/{ticketId}": { "schema": { "$ref": "#/entities/SupportTicket" }, "description": "Support tickets" },
+    "/auditLogs/{logId}": { "schema": { "$ref": "#/entities/AuditLog" }, "description": "Immutable audit logs" }
   }
 }
