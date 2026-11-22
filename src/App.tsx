@@ -97,34 +97,41 @@ export function App() {
 
   // Register Firebase Auth observer once (uses refs + single-flight deduplication so no duplicate session requests run)
   useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, async (fbUser) => {
-      if (!fbUser) {
-        setUser(null);
-        return;
-      }
-
-      // If an explicit sign-in click is running, it coordinates session creation + immediate redirect directly
-      if (manualSignInRef.current) {
-        return;
-      }
-
-      try {
-        let savedRef = '';
-        try {
-          savedRef = sessionStorage.getItem(SESSION_REF_KEY) || '';
-        } catch {
-          savedRef = '';
+    const unsubscribe = onAuthStateChanged(
+      auth,
+      async (fbUser) => {
+        if (!fbUser) {
+          setUser(null);
+          return;
         }
-        const { user: profile } = await api.establishSession(
-          savedRef || referralCodeRef.current,
-          fbUser
-        );
-        setUser(profile);
-      } catch (err: any) {
-        console.error('Session sync failed:', err);
-        setAuthNotice(err?.message || 'Could not verify your account session.');
+
+        // If an explicit sign-in click is running, it coordinates session creation + immediate redirect directly
+        if (manualSignInRef.current) {
+          return;
+        }
+
+        try {
+          let savedRef = '';
+          try {
+            savedRef = sessionStorage.getItem(SESSION_REF_KEY) || '';
+          } catch {
+            savedRef = '';
+          }
+          const { user: profile } = await api.establishSession(
+            savedRef || referralCodeRef.current,
+            fbUser
+          );
+          setUser(profile);
+        } catch (err: any) {
+          console.error('Session sync failed:', err);
+          setAuthNotice(err?.message || 'Could not verify your account session.');
+        }
+      },
+      (authErr) => {
+        console.error('Firebase Auth state error:', authErr);
+        setAuthNotice(authErr?.message || 'Authentication session error. Please sign in again.');
       }
-    });
+    );
 
     return () => unsubscribe();
   }, []);

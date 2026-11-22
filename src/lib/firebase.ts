@@ -1,15 +1,106 @@
-import { initializeApp, getApps, getApp } from 'firebase/app';
-import { getFirestore, doc, getDocFromServer } from 'firebase/firestore';
-import { getAuth, GoogleAuthProvider } from 'firebase/auth';
-import { getStorage, ref, uploadBytes, getDownloadURL, deleteObject } from 'firebase/storage';
+import { initializeApp, getApps, getApp, type FirebaseApp } from 'firebase/app';
+import {
+  getFirestore,
+  initializeFirestore,
+  memoryLocalCache,
+  doc,
+  getDocFromServer,
+  type Firestore,
+} from 'firebase/firestore';
+import {
+  getAuth,
+  initializeAuth,
+  browserLocalPersistence,
+  browserSessionPersistence,
+  inMemoryPersistence,
+  browserPopupRedirectResolver,
+  GoogleAuthProvider,
+  type Auth,
+} from 'firebase/auth';
+import {
+  getStorage,
+  ref,
+  uploadBytes,
+  getDownloadURL,
+  deleteObject,
+  type FirebaseStorage,
+} from 'firebase/storage';
 import firebaseConfig from '../../firebase-applet-config.json';
 
-export const app = !getApps().length ? initializeApp(firebaseConfig) : getApp();
-export const db = getFirestore(app, firebaseConfig.firestoreDatabaseId || '(default)');
-export const auth = getAuth(app);
-export const storage = getStorage(app);
-export const googleProvider = new GoogleAuthProvider();
-googleProvider.setCustomParameters({ prompt: 'select_account' });
+interface FirebaseSingletons {
+  app: FirebaseApp;
+  db: Firestore;
+  auth: Auth;
+  storage: FirebaseStorage;
+  googleProvider: GoogleAuthProvider;
+}
+
+const GLOBAL_KEY = '__SAVVVNLAB_FIREBASE_SINGLETONS__';
+
+function createFirebaseSingletons(): FirebaseSingletons {
+  const g = globalThis as Record<string, unknown>;
+  const existing = g[GLOBAL_KEY] as FirebaseSingletons | undefined;
+  if (existing) {
+    return existing;
+  }
+
+  const firebaseApp = !getApps().length ? initializeApp(firebaseConfig) : getApp();
+  const databaseId = firebaseConfig.firestoreDatabaseId || '(default)';
+
+  let firestoreDb: Firestore;
+  try {
+    firestoreDb = initializeFirestore(
+      firebaseApp,
+      {
+        localCache: memoryLocalCache(),
+        experimentalAutoDetectLongPolling: true,
+      },
+      databaseId
+    );
+  } catch {
+    firestoreDb = getFirestore(firebaseApp, databaseId);
+  }
+
+  // Avoid IndexedDBLocalPersistence because Firebase Auth closes IndexedDB on
+  // pagehide/visibilitychange (e.g. iframe focus or Google OAuth popups), throwing
+  // "Database is closing/hidden". Web Storage + Memory persistence stays open and fast.
+  let firebaseAuth: Auth;
+  try {
+    firebaseAuth = initializeAuth(firebaseApp, {
+      persistence: [
+        browserLocalPersistence,
+        browserSessionPersistence,
+        inMemoryPersistence,
+      ],
+      popupRedirectResolver: browserPopupRedirectResolver,
+    });
+  } catch {
+    firebaseAuth = getAuth(firebaseApp);
+  }
+
+  const firebaseStorage = getStorage(firebaseApp);
+  const provider = new GoogleAuthProvider();
+  provider.setCustomParameters({ prompt: 'select_account' });
+
+  const singletons: FirebaseSingletons = {
+    app: firebaseApp,
+    db: firestoreDb,
+    auth: firebaseAuth,
+    storage: firebaseStorage,
+    googleProvider: provider,
+  };
+
+  g[GLOBAL_KEY] = singletons;
+  return singletons;
+}
+
+const singletons = createFirebaseSingletons();
+
+export const app = singletons.app;
+export const db = singletons.db;
+export const auth = singletons.auth;
+export const storage = singletons.storage;
+export const googleProvider = singletons.googleProvider;
 
 export async function uploadPackageCover(
   packageKey: string,

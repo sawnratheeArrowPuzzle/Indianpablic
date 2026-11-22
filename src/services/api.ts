@@ -19,6 +19,9 @@ import type {
 const API_BASE = (import.meta.env.VITE_API_BASE_URL || '').trim().replace(/\/+$/, '');
 
 async function getAuthHeaders(targetUser?: User | null): Promise<HeadersInit> {
+  if (!targetUser && !auth.currentUser && typeof auth.authStateReady === 'function') {
+    await auth.authStateReady().catch(() => undefined);
+  }
   const user = targetUser || auth.currentUser;
   if (!user) {
     throw new Error('Please sign in with Google to continue.');
