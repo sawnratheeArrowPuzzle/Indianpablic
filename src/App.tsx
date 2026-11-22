@@ -1,7 +1,12 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { onAuthStateChanged, signInWithPopup, signOut } from 'firebase/auth';
 import { AlertCircle, X } from 'lucide-react';
-import { auth, googleProvider } from './lib/firebase';
+import {
+  AUTHORIZED_ADMIN_EMAIL,
+  auth,
+  googleProvider,
+  syncUserProfileToFirestore,
+} from './lib/firebase';
 import { api } from './services/api';
 import type { Package, PublicCatalogResponse, UserProfile } from './types/savvvn';
 import { BrandLogo } from './components/common/BrandLogo';
@@ -23,6 +28,14 @@ import { AdminPanel } from './components/admin/AdminPanel';
 
 const SESSION_PKG_KEY = 'savvvn_pending_pkg';
 const SESSION_REF_KEY = 'savvvn_ref_code';
+
+function isAuthorizedAdmin(profile?: UserProfile | null): boolean {
+  return Boolean(
+    profile &&
+      profile.role === 'admin' &&
+      profile.email.trim().toLowerCase() === AUTHORIZED_ADMIN_EMAIL
+  );
+}
 
 export function App() {
   const [catalog, setCatalog] = useState<PublicCatalogResponse | null>(null);
@@ -122,6 +135,7 @@ export function App() {
             fbUser
           );
           setUser(profile);
+          void syncUserProfileToFirestore(profile);
         } catch (err: any) {
           console.error('Session sync failed:', err);
           setAuthNotice(err?.message || 'Could not verify your account session.');
@@ -175,20 +189,25 @@ export function App() {
           credential.user
         );
         setUser(profile);
+        void syncUserProfileToFirestore(profile);
 
-        if (destinationOnSuccess === 'checkout' || pendingPkg) {
+        const adminAuthorized = isAuthorizedAdmin(profile);
+
+        if (adminAuthorized && destinationOnSuccess !== 'checkout') {
+          navigate('admin');
+        } else if (destinationOnSuccess === 'checkout' || pendingPkg) {
           if (pendingPkg) {
             setSelectedPackageId(pendingPkg);
           }
           navigate('checkout');
         } else if (destinationOnSuccess) {
-          if (destinationOnSuccess === 'admin' && profile.role !== 'admin') {
+          if (destinationOnSuccess === 'admin' && !adminAuthorized) {
             navigate('dashboard');
           } else {
             navigate(destinationOnSuccess);
           }
         } else {
-          navigate(profile.role === 'admin' ? 'admin' : 'dashboard');
+          navigate(adminAuthorized ? 'admin' : 'dashboard');
         }
       } catch (err: any) {
         const code = err?.code || '';
@@ -247,9 +266,9 @@ export function App() {
 
   const handleTopNavAuthAction = useCallback(() => {
     if (user) {
-      navigate(user.role === 'admin' ? 'admin' : 'dashboard');
+      navigate(isAuthorizedAdmin(user) ? 'admin' : 'dashboard');
     } else {
-      handleGoogleSignIn('dashboard');
+      handleGoogleSignIn();
     }
   }, [handleGoogleSignIn, navigate, user]);
 
@@ -276,8 +295,8 @@ export function App() {
     );
   }
 
-  // Full-screen Admin Console (strictly gated by server-verified role)
-  if (route === 'admin' && user?.role === 'admin') {
+  // Full-screen Admin Console (strictly gated by server-verified sawn6849@gmail.com role)
+  if (route === 'admin' && isAuthorizedAdmin(user) && user) {
     return (
       <AdminPanel
         user={user}
@@ -292,7 +311,7 @@ export function App() {
   }
 
   // Full-screen Member Workspace
-  if (route === 'dashboard' && user && catalog) {
+  if ((route === 'dashboard' || (route === 'admin' && user && !isAuthorizedAdmin(user))) && user && catalog) {
     return (
       <MemberPortal
         user={user}
@@ -300,7 +319,7 @@ export function App() {
         onRefreshUser={(updated) => setUser(updated)}
         onBuyPackage={handleBuyPackage}
         onOpenAdmin={() => {
-          if (user.role === 'admin') navigate('admin');
+          if (isAuthorizedAdmin(user)) navigate('admin');
         }}
         onGoPublicHome={() => navigate('home')}
         onLogout={handleLogout}
@@ -321,8 +340,8 @@ export function App() {
     youtubeUrl: '',
     telegramUrl: '',
     whatsappUrl: '',
-    upiId: '',
-    upiPayeeName: 'SavvvnLab Official',
+    upiId: '469519102@ybl',
+    upiPayeeName: 'SavvvnLab',
     upiInstructions: '',
     customUpiQrUrl: '',
     minWithdrawal: 500,

@@ -29,6 +29,7 @@ import {
   Eye,
 } from 'lucide-react';
 import { api } from '../../services/api';
+import { AUTHORIZED_ADMIN_EMAIL } from '../../lib/firebase';
 import { BrandLogo } from '../common/BrandLogo';
 import {
   AdminPackagesManager,
@@ -90,7 +91,15 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
   const [busyId, setBusyId] = useState<string | null>(null);
   const [lbRange, setLbRange] = useState<'days7' | 'days30' | 'allTime'>('allTime');
 
+  const isAuthorizedAdmin =
+    user.role === 'admin' && user.email.trim().toLowerCase() === AUTHORIZED_ADMIN_EMAIL;
+
   const loadData = async () => {
+    if (!isAuthorizedAdmin) {
+      setLoading(false);
+      setError('Administrator access is restricted exclusively to sawn6849@gmail.com.');
+      return;
+    }
     setLoading(true);
     setError(null);
     try {
@@ -264,6 +273,27 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
     </div>
   );
 
+  if (!isAuthorizedAdmin) {
+    return (
+      <div className="min-h-screen bg-[#F8FAFC] flex items-center justify-center p-6">
+        <div className="max-w-md w-full bg-white border border-slate-200 rounded-xl p-6 text-center space-y-4">
+          <BrandLogo variant="full" className="mx-auto" />
+          <h1 className="font-display text-lg font-bold text-[#0B1E36]">Admin Access Restricted</h1>
+          <p className="text-sm text-slate-600">
+            Only the authorized administrator account can access this console.
+          </p>
+          <button
+            type="button"
+            onClick={onOpenMemberDashboard}
+            className="px-5 py-2.5 rounded-lg bg-[#0B1E36] text-white text-sm font-semibold cursor-pointer"
+          >
+            Go to Member Dashboard
+          </button>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="min-h-screen bg-[#F8FAFC] flex flex-col lg:flex-row">
       <aside className="hidden lg:block lg:w-64 shrink-0">{renderSidebar(false)}</aside>
@@ -291,8 +321,18 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
             </h1>
           </div>
 
-          <div className="text-xs text-slate-600 truncate">
-            Signed in as <strong className="text-[#0B1E36]">{user.email}</strong>
+          <div className="flex items-center gap-2.5 text-xs text-slate-600 truncate">
+            {user.photoURL ? (
+              <img
+                src={user.photoURL}
+                alt={user.displayName}
+                referrerPolicy="no-referrer"
+                className="w-7 h-7 rounded-full object-cover border border-slate-200 shrink-0"
+              />
+            ) : null}
+            <span className="truncate">
+              Signed in as <strong className="text-[#0B1E36]">{user.email}</strong>
+            </span>
           </div>
         </header>
 
@@ -429,8 +469,24 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
                             .map((m) => (
                               <tr key={m.uid} className="h-12">
                                 <td className="py-2 pr-4">
-                                  <div className="font-semibold text-[#0B1E36]">{m.displayName}</div>
-                                  <div className="text-xs text-slate-500">{m.email}</div>
+                                  <div className="flex items-center gap-2.5">
+                                    {m.photoURL ? (
+                                      <img
+                                        src={m.photoURL}
+                                        alt={m.displayName}
+                                        referrerPolicy="no-referrer"
+                                        className="w-8 h-8 rounded-full object-cover border border-slate-200 shrink-0"
+                                      />
+                                    ) : (
+                                      <div className="w-8 h-8 rounded-full bg-slate-200 text-[#0B1E36] text-xs font-bold flex items-center justify-center shrink-0">
+                                        {m.displayName.slice(0, 1).toUpperCase()}
+                                      </div>
+                                    )}
+                                    <div>
+                                      <div className="font-semibold text-[#0B1E36]">{m.displayName}</div>
+                                      <div className="text-xs text-slate-500">{m.email}</div>
+                                    </div>
+                                  </div>
                                 </td>
                                 <td className="py-2 pr-4 font-mono-num text-xs">{m.referralCode}</td>
                                 <td className="py-2 pr-4 font-mono-num text-xs">
@@ -449,7 +505,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
                                   </span>
                                 </td>
                                 <td className="py-2 text-right">
-                                  {m.email !== 'sawnk340@gmail.com' && (
+                                  {m.email.toLowerCase() !== AUTHORIZED_ADMIN_EMAIL && (
                                     <button
                                       type="button"
                                       onClick={async () => {

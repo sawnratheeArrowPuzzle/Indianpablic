@@ -104,8 +104,8 @@ async function fetchPublicCatalogFromFirestore(): Promise<PublicCatalogResponse>
       youtubeUrl: rawSettings.youtubeUrl || '',
       telegramUrl: rawSettings.telegramUrl || '',
       whatsappUrl: rawSettings.whatsappUrl || '',
-      upiId: rawSettings.upiId || '',
-      upiPayeeName: rawSettings.upiPayeeName || 'SavvvnLab Official',
+      upiId: rawSettings.upiId || '469519102@ybl',
+      upiPayeeName: rawSettings.upiPayeeName || 'SavvvnLab',
       upiInstructions:
         rawSettings.upiInstructions ||
         'Scan the QR code or copy the UPI ID above, pay the exact package amount, and submit your 12-digit UTR.',
@@ -178,7 +178,19 @@ export const api = {
 
   getMemberOverview: () => requestJson<MemberOverviewResponse>('/api/me/overview', {}, true),
 
-  updateProfile: (payload: { displayName: string; phone: string; upiId: string }) =>
+  uploadAvatarFallback: (dataUrl: string) =>
+    requestJson<{ url: string }>(
+      '/api/me/avatar',
+      { method: 'POST', body: JSON.stringify({ dataUrl }) },
+      true
+    ),
+
+  updateProfile: (payload: {
+    displayName: string;
+    phone: string;
+    upiId: string;
+    photoURL?: string;
+  }) =>
     requestJson<{ user: UserProfile }>(
       '/api/me/profile',
       { method: 'PATCH', body: JSON.stringify(payload) },

@@ -22,8 +22,16 @@ import {
   Menu,
   X,
   Shield,
+  Camera,
+  Trash2,
 } from 'lucide-react';
 import { api } from '../../services/api';
+import {
+  AUTHORIZED_ADMIN_EMAIL,
+  deleteProfilePictureByUrl,
+  syncUserProfileToFirestore,
+  uploadProfilePicture,
+} from '../../lib/firebase';
 import { BrandLogo } from '../common/BrandLogo';
 import type {
   Course,
@@ -32,6 +40,49 @@ import type {
   PublicCatalogResponse,
   UserProfile,
 } from '../../types/savvvn';
+
+function prepareProfileAvatarImage(
+  file: File
+): Promise<{ blob: Blob; mimeType: string; dataUrl: string }> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onerror = () => reject(new Error('Could not read selected image file'));
+    reader.onload = () => {
+      const img = new Image();
+      img.onerror = () => reject(new Error('Unsupported or corrupted image file'));
+      img.onload = () => {
+        const maxSize = 512;
+        const scale = Math.min(1, maxSize / Math.max(img.width || 1, img.height || 1));
+        const width = Math.max(1, Math.round(img.width * scale));
+        const height = Math.max(1, Math.round(img.height * scale));
+        const canvas = document.createElement('canvas');
+        canvas.width = width;
+        canvas.height = height;
+        const ctx = canvas.getContext('2d');
+        if (!ctx) {
+          reject(new Error('Could not initialize image processor'));
+          return;
+        }
+        ctx.drawImage(img, 0, 0, width, height);
+        const mimeType = file.type === 'image/png' ? 'image/png' : 'image/jpeg';
+        const dataUrl = canvas.toDataURL(mimeType, 0.86);
+        canvas.toBlob(
+          (blob) => {
+            if (!blob) {
+              reject(new Error('Could not prepare image for upload'));
+              return;
+            }
+            resolve({ blob, mimeType, dataUrl });
+          },
+          mimeType,
+          0.86
+        );
+      };
+      img.src = String(reader.result);
+    };
+    reader.readAsDataURL(file);
+  });
+}
 
 type MemberTab =
   | 'dashboard'
@@ -140,6 +191,10 @@ export const MemberPortal: React.FC<MemberPortalProps> = ({
   const [profName, setProfName] = useState(user.displayName);
   const [profPhone, setProfPhone] = useState(user.phone || '');
   const [profUpi, setProfUpi] = useState(user.upiId || '');
+  const [stagedAvatarBlob, setStagedAvatarBlob] = useState<Blob | null>(null);
+  const [stagedAvatarMime, setStagedAvatarMime] = useState<string>('image/jpeg');
+  const [stagedAvatarPreview, setStagedAvatarPreview] = useState<string>('');
+  const [stagedAvatarRemove, setStagedAvatarRemove] = useState(false);
   const [profBusy, setProfBusy] = useState(false);
   const [profMsg, setProfMsg] = useState<{ type: 'ok' | 'err'; text: string } | null>(null);
 
@@ -226,18 +281,67 @@ export const MemberPortal: React.FC<MemberPortalProps> = ({
     }
   };
 
+  const handleProfilePhotoSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    e.target.value = '';
+    if (!file) return;
+    setProfMsg(null);
+    if (!file.type.startsWith('image/')) {
+      setProfMsg({ type: 'err', text: 'Please select a valid JPG, PNG, or WebP image.' });
+      return;
+    }
+    if (file.size > 10 * 1024 * 1024) {
+      setProfMsg({ type: 'err', text: 'Selected image must be smaller than 10 MB.' });
+      return;
+    }
+    try {
+      const prepared = await prepareProfileAvatarImage(file);
+      setStagedAvatarBlob(prepared.blob);
+      setStagedAvatarMime(prepared.mimeType);
+      setStagedAvatarPreview(prepared.dataUrl);
+      setStagedAvatarRemove(false);
+    } catch (err: any) {
+      setProfMsg({ type: 'err', text: err?.message || 'Could not process image.' });
+    }
+  };
+
   const handleSaveProfile = async (e: React.FormEvent) => {
     e.preventDefault();
     setProfBusy(true);
     setProfMsg(null);
+    const previousPhotoUrl = overview?.user.photoURL || user.photoURL || '';
     try {
+      let nextPhotoUrl: string | undefined = undefined;
+      if (stagedAvatarRemove) {
+        nextPhotoUrl = '';
+      } else if (stagedAvatarBlob) {
+        try {
+          nextPhotoUrl = await uploadProfilePicture(user.uid, stagedAvatarBlob, stagedAvatarMime);
+        } catch {
+          const uploaded = await api.uploadAvatarFallback(stagedAvatarPreview);
+          nextPhotoUrl = uploaded.url;
+        }
+      }
+
       const res = await api.updateProfile({
         displayName: profName.trim(),
         phone: profPhone.trim(),
         upiId: profUpi.trim(),
+        ...(nextPhotoUrl !== undefined ? { photoURL: nextPhotoUrl } : {}),
       });
+      await syncUserProfileToFirestore(res.user);
+      if (
+        previousPhotoUrl &&
+        (stagedAvatarRemove || (nextPhotoUrl && nextPhotoUrl !== previousPhotoUrl))
+      ) {
+        await deleteProfilePictureByUrl(previousPhotoUrl);
+      }
+
+      setStagedAvatarBlob(null);
+      setStagedAvatarPreview('');
+      setStagedAvatarRemove(false);
       onRefreshUser(res.user);
-      setProfMsg({ type: 'ok', text: 'Profile and UPI payout details updated.' });
+      setProfMsg({ type: 'ok', text: 'Profile and photo updated.' });
       await loadOverview();
     } catch (err: any) {
       setProfMsg({ type: 'err', text: err?.message || 'Profile update failed' });
@@ -284,6 +388,11 @@ export const MemberPortal: React.FC<MemberPortalProps> = ({
     setActiveCourse(null);
   };
 
+  const activeUser = overview?.user || user;
+  const activePhotoUrl = activeUser.photoURL || '';
+  const canOpenAdmin =
+    user.role === 'admin' && user.email.trim().toLowerCase() === AUTHORIZED_ADMIN_EMAIL;
+
   const ownedPackageNames = (overview?.user.unlockedPackageIds || [])
     .map((pid) => catalog.packages.find((p) => p.id === pid)?.name)
     .filter(Boolean)
@@ -316,7 +425,7 @@ export const MemberPortal: React.FC<MemberPortalProps> = ({
             </button>
           ))}
 
-          {user.role === 'admin' && (
+          {canOpenAdmin && (
             <div className="pt-3 mt-3 border-t border-slate-800">
               <button
                 type="button"
@@ -376,7 +485,7 @@ export const MemberPortal: React.FC<MemberPortalProps> = ({
                   <span>{item.label}</span>
                 </button>
               ))}
-              {user.role === 'admin' && (
+              {canOpenAdmin && (
                 <button
                   type="button"
                   onClick={onOpenAdmin}
@@ -466,20 +575,20 @@ export const MemberPortal: React.FC<MemberPortalProps> = ({
               onClick={() => selectTab('profile')}
               className="flex items-center gap-2 text-left cursor-pointer"
             >
-              {user.photoURL ? (
+              {activePhotoUrl ? (
                 <img
-                  src={user.photoURL}
-                  alt={user.displayName}
+                  src={activePhotoUrl}
+                  alt={activeUser.displayName}
                   referrerPolicy="no-referrer"
                   className="w-8 h-8 rounded-full object-cover border border-slate-200"
                 />
               ) : (
                 <div className="w-8 h-8 rounded-full bg-[#0B1E36] text-white text-xs font-bold flex items-center justify-center">
-                  {user.displayName.slice(0, 1).toUpperCase()}
+                  {activeUser.displayName.slice(0, 1).toUpperCase()}
                 </div>
               )}
               <span className="hidden sm:inline text-sm font-medium text-[#0B1E36] truncate max-w-[140px]">
-                {user.displayName}
+                {activeUser.displayName}
               </span>
             </button>
           </div>
@@ -508,13 +617,27 @@ export const MemberPortal: React.FC<MemberPortalProps> = ({
                 <div className="space-y-6">
                   {/* Welcome Strip */}
                   <div className="bg-white border border-slate-200 rounded-xl p-6 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-                    <div>
-                      <div className="text-xs text-slate-500">
-                        {overview.user.referralCode} · {ownedPackageNames || 'No active package yet'}
+                    <div className="flex items-center gap-4">
+                      {activePhotoUrl ? (
+                        <img
+                          src={activePhotoUrl}
+                          alt={overview.user.displayName}
+                          referrerPolicy="no-referrer"
+                          className="w-12 h-12 rounded-full object-cover border border-slate-200 shrink-0"
+                        />
+                      ) : (
+                        <div className="w-12 h-12 rounded-full bg-[#0B1E36] text-white text-base font-bold flex items-center justify-center shrink-0">
+                          {overview.user.displayName.slice(0, 1).toUpperCase()}
+                        </div>
+                      )}
+                      <div>
+                        <div className="text-xs text-slate-500">
+                          {overview.user.referralCode} · {ownedPackageNames || 'No active package yet'}
+                        </div>
+                        <h2 className="font-display text-2xl font-bold text-[#0B1E36] mt-0.5">
+                          Welcome back, {overview.user.displayName}
+                        </h2>
                       </div>
-                      <h2 className="font-display text-2xl font-bold text-[#0B1E36] mt-0.5">
-                        Welcome back, {overview.user.displayName}
-                      </h2>
                     </div>
                     <div className="flex flex-wrap gap-2.5">
                       <button
@@ -1011,6 +1134,18 @@ export const MemberPortal: React.FC<MemberPortalProps> = ({
                             <span className="font-mono-num text-sm font-bold w-6 text-slate-500">
                               #{idx + 1}
                             </span>
+                            {entry.photoURL ? (
+                              <img
+                                src={entry.photoURL}
+                                alt={entry.displayName}
+                                referrerPolicy="no-referrer"
+                                className="w-9 h-9 rounded-full object-cover border border-slate-200 shrink-0"
+                              />
+                            ) : (
+                              <div className="w-9 h-9 rounded-full bg-slate-100 text-[#0B1E36] text-xs font-bold flex items-center justify-center shrink-0">
+                                {entry.displayName.slice(0, 1).toUpperCase()}
+                              </div>
+                            )}
                             <div>
                               <div className="font-semibold text-sm text-[#0B1E36]">
                                 {entry.displayName}
@@ -1421,11 +1556,100 @@ export const MemberPortal: React.FC<MemberPortalProps> = ({
               {tab === 'profile' && (
                 <form
                   onSubmit={handleSaveProfile}
-                  className="max-w-xl bg-white border border-slate-200 rounded-xl p-6 space-y-4"
+                  className="max-w-xl bg-white border border-slate-200 rounded-xl p-6 space-y-5"
                 >
                   <h2 className="font-display text-lg font-bold text-[#0B1E36]">
                     Member Profile & UPI Payout Details
                   </h2>
+
+                  {/* Profile Picture Uploader */}
+                  {(() => {
+                    const previewSrc = stagedAvatarRemove
+                      ? ''
+                      : stagedAvatarPreview || activePhotoUrl;
+                    return (
+                      <div className="flex flex-col sm:flex-row sm:items-center gap-4 p-4 rounded-xl bg-slate-50 border border-slate-200">
+                        <div className="relative shrink-0 w-20 h-20">
+                          {previewSrc ? (
+                            <img
+                              src={previewSrc}
+                              alt={profName || activeUser.displayName}
+                              referrerPolicy="no-referrer"
+                              className="w-20 h-20 rounded-full object-cover border-2 border-white shadow-xs"
+                            />
+                          ) : (
+                            <div className="w-20 h-20 rounded-full bg-[#0B1E36] text-white text-2xl font-bold flex items-center justify-center border-2 border-white shadow-xs">
+                              {(profName || activeUser.displayName).slice(0, 1).toUpperCase()}
+                            </div>
+                          )}
+                        </div>
+
+                        <div className="flex-1 space-y-2">
+                          <div>
+                            <div className="text-sm font-semibold text-[#0B1E36]">Profile Picture</div>
+                            <p className="text-xs text-slate-500">
+                              Upload from mobile gallery, camera, or computer (JPG, PNG, WebP).
+                            </p>
+                          </div>
+
+                          <div className="flex flex-wrap items-center gap-2">
+                            <label className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-lg bg-[#0B1E36] hover:bg-[#132f53] text-white text-xs font-semibold cursor-pointer">
+                              <Camera className="w-3.5 h-3.5" />
+                              <span>{previewSrc ? 'Replace Photo' : 'Upload Photo'}</span>
+                              <input
+                                type="file"
+                                accept="image/jpeg,image/png,image/webp"
+                                onChange={handleProfilePhotoSelect}
+                                className="sr-only"
+                              />
+                            </label>
+
+                            {previewSrc && (
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setStagedAvatarBlob(null);
+                                  setStagedAvatarPreview('');
+                                  setStagedAvatarRemove(true);
+                                  setProfMsg(null);
+                                }}
+                                className="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg border border-red-200 bg-white hover:bg-red-50 text-red-600 text-xs font-semibold cursor-pointer"
+                              >
+                                <Trash2 className="w-3.5 h-3.5" />
+                                <span>Remove</span>
+                              </button>
+                            )}
+
+                            {(stagedAvatarPreview || stagedAvatarRemove) && (
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setStagedAvatarBlob(null);
+                                  setStagedAvatarPreview('');
+                                  setStagedAvatarRemove(false);
+                                }}
+                                className="px-2.5 py-2 text-xs font-medium text-slate-600 hover:text-[#0B1E36] cursor-pointer"
+                              >
+                                Cancel
+                              </button>
+                            )}
+                          </div>
+
+                          {stagedAvatarPreview && (
+                            <div className="text-[11px] font-medium text-[#0D9488]">
+                              Preview ready — click Save Profile to apply.
+                            </div>
+                          )}
+                          {stagedAvatarRemove && (
+                            <div className="text-[11px] font-medium text-amber-700">
+                              Photo will be removed when you click Save Profile.
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    );
+                  })()}
+
                   <div className="text-xs text-slate-500">
                     Email: <strong className="text-[#0B1E36]">{user.email}</strong> · Code:{' '}
                     <span className="font-mono-num font-semibold">{refCode}</span>
@@ -1467,7 +1691,7 @@ export const MemberPortal: React.FC<MemberPortalProps> = ({
                   <button
                     type="submit"
                     disabled={profBusy}
-                    className="px-5 py-2.5 rounded-lg bg-[#0B1E36] text-white text-sm font-semibold cursor-pointer"
+                    className="px-5 py-2.5 rounded-lg bg-[#0B1E36] text-white text-sm font-semibold cursor-pointer disabled:opacity-60"
                   >
                     {profBusy ? 'Saving...' : 'Save Profile'}
                   </button>

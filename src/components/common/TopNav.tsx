@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { Menu, User, X } from 'lucide-react';
 import { BrandLogo } from './BrandLogo';
+import { AUTHORIZED_ADMIN_EMAIL } from '../../lib/firebase';
 import type { UserProfile } from '../../types/savvvn';
 
 export type PublicRoute =
@@ -47,8 +48,14 @@ export const TopNav: React.FC<TopNavProps> = ({
     setMobileMenuOpen(false);
   };
 
+  const isAdmin = Boolean(
+    user &&
+      user.role === 'admin' &&
+      user.email.trim().toLowerCase() === AUTHORIZED_ADMIN_EMAIL
+  );
+
   const primaryCtaLabel = user
-    ? user.role === 'admin'
+    ? isAdmin
       ? 'Admin Console'
       : 'My Dashboard'
     : authBusy
@@ -100,6 +107,13 @@ export const TopNav: React.FC<TopNavProps> = ({
           >
             {!user && authBusy ? (
               <span className="w-3.5 h-3.5 rounded-full border-2 border-white border-t-transparent animate-spin shrink-0" />
+            ) : user?.photoURL ? (
+              <img
+                src={user.photoURL}
+                alt={user.displayName}
+                referrerPolicy="no-referrer"
+                className="w-5 h-5 rounded-full object-cover border border-white/40 shrink-0"
+              />
             ) : (
               <User className="w-4 h-4 shrink-0" />
             )}

@@ -4,7 +4,10 @@ import {
   initializeFirestore,
   memoryLocalCache,
   doc,
+  getDoc,
   getDocFromServer,
+  setDoc,
+  updateDoc,
   type Firestore,
 } from 'firebase/firestore';
 import {
@@ -79,6 +82,8 @@ function createFirebaseSingletons(): FirebaseSingletons {
   }
 
   const firebaseStorage = getStorage(firebaseApp);
+  firebaseStorage.maxUploadRetryTime = 8000;
+  firebaseStorage.maxOperationRetryTime = 8000;
   const provider = new GoogleAuthProvider();
   provider.setCustomParameters({ prompt: 'select_account' });
 
@@ -96,11 +101,99 @@ function createFirebaseSingletons(): FirebaseSingletons {
 
 const singletons = createFirebaseSingletons();
 
+export const AUTHORIZED_ADMIN_EMAIL = 'sawn6849@gmail.com';
 export const app = singletons.app;
 export const db = singletons.db;
 export const auth = singletons.auth;
 export const storage = singletons.storage;
 export const googleProvider = singletons.googleProvider;
+
+export async function uploadProfilePicture(
+  uid: string,
+  blob: Blob,
+  mimeType: string
+): Promise<string> {
+  if (!auth.currentUser || auth.currentUser.uid !== uid) {
+    throw new Error('Please sign in with Google before updating your profile picture.');
+  }
+  const safeUid = uid.replace(/[^a-zA-Z0-9_-]/g, '') || 'user';
+  const ext = mimeType === 'image/png' ? 'png' : mimeType === 'image/webp' ? 'webp' : 'jpg';
+  const objectRef = ref(storage, `profile-pictures/${safeUid}/avatar-${Date.now()}.${ext}`);
+
+  await uploadBytes(objectRef, blob, {
+    contentType: mimeType,
+    cacheControl: 'public,max-age=31536000',
+  });
+  return await getDownloadURL(objectRef);
+}
+
+export async function deleteProfilePictureByUrl(url: string): Promise<void> {
+  if (!url || !url.includes('firebasestorage.googleapis.com') || !url.includes('profile-pictures')) {
+    return;
+  }
+  try {
+    const fileRef = ref(storage, url);
+    await deleteObject(fileRef);
+  } catch {
+    // Non-fatal if already removed or external URL
+  }
+}
+
+export async function syncUserProfileToFirestore(profile: {
+  uid: string;
+  email: string;
+  displayName: string;
+  photoURL?: string;
+  phone?: string;
+  role: string;
+  status: string;
+  referralCode: string;
+  referredByUid?: string | null;
+  referredByCode?: string | null;
+  upiId?: string;
+  unlockedPackageIds: string[];
+  createdAt: string;
+  updatedAt: string;
+}): Promise<boolean> {
+  if (!auth.currentUser || auth.currentUser.uid !== profile.uid) {
+    return false;
+  }
+  const userRef = doc(db, 'users', profile.uid);
+  try {
+    const snap = await getDoc(userRef);
+    const now = profile.updatedAt || new Date().toISOString();
+    if (!snap.exists()) {
+      await setDoc(userRef, {
+        uid: profile.uid,
+        email: profile.email,
+        displayName: profile.displayName,
+        photoURL: profile.photoURL ?? '',
+        phone: profile.phone ?? '',
+        role: profile.role,
+        status: profile.status,
+        referralCode: profile.referralCode,
+        referredByUid: profile.referredByUid ?? '',
+        referredByCode: profile.referredByCode ?? '',
+        upiId: profile.upiId ?? '',
+        unlockedPackageIds: profile.unlockedPackageIds ?? [],
+        createdAt: profile.createdAt || now,
+        updatedAt: now,
+      });
+    } else {
+      await updateDoc(userRef, {
+        displayName: profile.displayName,
+        phone: profile.phone ?? '',
+        upiId: profile.upiId ?? '',
+        photoURL: profile.photoURL ?? '',
+        updatedAt: now,
+      });
+    }
+    return true;
+  } catch (err) {
+    console.warn('Firestore profile sync skipped:', err instanceof Error ? err.message : err);
+    return false;
+  }
+}
 
 export async function uploadPackageCover(
   packageKey: string,

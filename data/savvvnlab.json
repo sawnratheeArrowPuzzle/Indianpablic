@@ -1,0 +1,359 @@
+{
+  "users": [],
+  "packages": [
+    {
+      "id": "pkg-gold",
+      "slug": "gold-package",
+      "name": "Gold Package",
+      "subtitle": "Essential Creative Foundation",
+      "description": "Start your digital skill journey with structured video editing, visual design, and creator growth foundations.",
+      "price": 499,
+      "originalPrice": 999,
+      "commissionRate": 25,
+      "benefits": [
+        "Full lifetime access to included foundation courses",
+        "Step-by-step project lessons & workflows",
+        "Verified partner referral link & wallet access",
+        "Community support & weekly training updates"
+      ],
+      "accentColor": "#0D9488",
+      "featured": false,
+      "active": true,
+      "sortOrder": 1,
+      "createdAt": "2026-11-22T05:09:35.387Z",
+      "updatedAt": "2026-11-22T05:09:35.387Z"
+    },
+    {
+      "id": "pkg-platinum",
+      "slug": "platinum-package",
+      "name": "Platinum Package",
+      "subtitle": "Complete Creator Toolkit",
+      "description": "Built for creators ready to produce high-retention reels, brand kits, and consistent YouTube channels.",
+      "price": 999,
+      "originalPrice": 1999,
+      "commissionRate": 30,
+      "benefits": [
+        "Includes everything in Gold Package plus YouTube Mastery",
+        "High-retention editing templates & color workflows",
+        "Priority support ticket routing",
+        "Higher referral commission eligibility (30%)"
+      ],
+      "accentColor": "#6D28D9",
+      "featured": true,
+      "active": true,
+      "sortOrder": 2,
+      "createdAt": "2026-11-22T05:09:35.387Z",
+      "updatedAt": "2026-11-22T05:09:35.387Z"
+    },
+    {
+      "id": "pkg-diamond",
+      "slug": "diamond-package",
+      "name": "Diamond Package",
+      "subtitle": "Pro Freelance & Growth System",
+      "description": "Advanced production, social distribution strategy, and client delivery workflows for serious digital professionals.",
+      "price": 1999,
+      "originalPrice": 3999,
+      "commissionRate": 35,
+      "benefits": [
+        "Full access to all core & advanced creator courses",
+        "Client portfolio & freelance workflow blueprints",
+        "Live community webinar access",
+        "35% verified partner commission rate"
+      ],
+      "accentColor": "#0B1E36",
+      "featured": false,
+      "active": true,
+      "sortOrder": 3,
+      "createdAt": "2026-11-22T05:09:35.387Z",
+      "updatedAt": "2026-11-22T05:09:35.387Z"
+    },
+    {
+      "id": "pkg-premium-pro",
+      "slug": "premium-pro",
+      "name": "Premium Pro Package",
+      "subtitle": "All-Access Studio Mastery",
+      "description": "Complete SavvvnLab library unlocking every current and future core curriculum track with maximum partner benefits.",
+      "price": 3999,
+      "originalPrice": 7999,
+      "commissionRate": 40,
+      "benefits": [
+        "Unlocks every course & module across SavvvnLab",
+        "Dedicated partner support & leaderboard eligibility",
+        "Advanced CapCut & agency scaling workshops",
+        "Maximum 40% verified partner commission rate"
+      ],
+      "accentColor": "#0F766E",
+      "featured": false,
+      "active": true,
+      "sortOrder": 4,
+      "createdAt": "2026-11-22T05:09:35.387Z",
+      "updatedAt": "2026-11-22T05:09:35.387Z"
+    }
+  ],
+  "courses": [
+    {
+      "id": "crs-video-editing",
+      "title": "Video Editing & CapCut Mastery",
+      "category": "Video Editing",
+      "description": "Master pacing, sound design, jump cuts, keyframes, and color grading for short-form reels and long-form storytelling.",
+      "thumbnail": "/src/assets/images/course_video_editing_1795281750455.jpg",
+      "instructor": "SavvvnLab Studio Faculty",
+      "level": "Beginner",
+      "active": true,
+      "createdAt": "2026-11-22T05:09:35.387Z",
+      "updatedAt": "2026-11-22T05:09:35.387Z",
+      "lessons": [
+        {
+          "id": "les-ve-1",
+          "title": "Timeline Architecture & Project Organization",
+          "duration": "14:20",
+          "videoUrl": "",
+          "summary": "Set up clean multi-track timelines, proxy media, and folder structures.",
+          "order": 1
+        },
+        {
+          "id": "les-ve-2",
+          "title": "Retention Pacing, B-Roll & Sound Layering",
+          "duration": "22:10",
+          "videoUrl": "",
+          "summary": "Combine J-cuts, L-cuts, whooshes, and dynamic captions for viewer retention.",
+          "order": 2
+        },
+        {
+          "id": "les-ve-3",
+          "title": "Color Balance & Export Settings for Social",
+          "duration": "18:45",
+          "videoUrl": "",
+          "summary": "Dial in skin tones, subtle contrast curves, and crisp 1080p/4K bitrate exports.",
+          "order": 3
+        }
+      ]
+    },
+    {
+      "id": "crs-canva-design",
+      "title": "Canva & Visual Brand Design",
+      "category": "Canva",
+      "description": "Create clean social carousels, high-CTR thumbnails, brand kits, and presentation decks using structured typography grids.",
+      "thumbnail": "/src/assets/images/course_design_canva_1795281749665.jpg",
+      "instructor": "SavvvnLab Design Team",
+      "level": "Beginner",
+      "active": true,
+      "createdAt": "2026-11-22T05:09:35.387Z",
+      "updatedAt": "2026-11-22T05:09:35.387Z",
+      "lessons": [
+        {
+          "id": "les-cd-1",
+          "title": "Grid Systems, Contrast & Typographic Hierarchy",
+          "duration": "16:00",
+          "videoUrl": "",
+          "summary": "Stop guessing layouts—apply repeatable alignment, spacing, and contrast rules.",
+          "order": 1
+        },
+        {
+          "id": "les-cd-2",
+          "title": "High-CTR YouTube & Reel Cover Templates",
+          "duration": "19:30",
+          "videoUrl": "",
+          "summary": "Design readable focal thumbnails with strong subject separation.",
+          "order": 2
+        },
+        {
+          "id": "les-cd-3",
+          "title": "Complete Brand Kit & Carousel System",
+          "duration": "21:15",
+          "videoUrl": "",
+          "summary": "Build cohesive multi-slide educational carousels in under 20 minutes.",
+          "order": 3
+        }
+      ]
+    },
+    {
+      "id": "crs-instagram-growth",
+      "title": "Instagram Content & Organic Growth",
+      "category": "Social Growth",
+      "description": "Structured content pillars, hook frameworks, analytics reading, and organic audience building without guesswork.",
+      "thumbnail": "/src/assets/images/hero_savvvnlab_workspace_1795281750249.jpg",
+      "instructor": "SavvvnLab Growth Lab",
+      "level": "Intermediate",
+      "active": true,
+      "createdAt": "2026-11-22T05:09:35.387Z",
+      "updatedAt": "2026-11-22T05:09:35.387Z",
+      "lessons": [
+        {
+          "id": "les-ig-1",
+          "title": "Profile Positioning & Niche Clarity",
+          "duration": "15:10",
+          "videoUrl": "",
+          "summary": "Turn profile visitors into long-term followers with clear positioning.",
+          "order": 1
+        },
+        {
+          "id": "les-ig-2",
+          "title": "3-Second Hook Mechanics & Script Frameworks",
+          "duration": "20:40",
+          "videoUrl": "",
+          "summary": "Write opening hooks backed by visual proof rather than clickbait.",
+          "order": 2
+        }
+      ]
+    },
+    {
+      "id": "crs-youtube-mastery",
+      "title": "YouTube Channel & Monetization Mastery",
+      "category": "YouTube",
+      "description": "Plan searchable topics, script engaging long-form videos, optimize retention graphs, and build sustainable creator income.",
+      "thumbnail": "/src/assets/images/course_growth_youtube_1795281750943.jpg",
+      "instructor": "SavvvnLab Creator Studio",
+      "level": "Intermediate",
+      "active": true,
+      "createdAt": "2026-11-22T05:09:35.387Z",
+      "updatedAt": "2026-11-22T05:09:35.387Z",
+      "lessons": [
+        {
+          "id": "les-yt-1",
+          "title": "Topic Research & Packaging Before Filming",
+          "duration": "24:00",
+          "videoUrl": "",
+          "summary": "Validate titles and thumbnail concepts before recording a single frame.",
+          "order": 1
+        },
+        {
+          "id": "les-yt-2",
+          "title": "Audience Retention Graph Diagnostics",
+          "duration": "17:50",
+          "videoUrl": "",
+          "summary": "Read YouTube Studio retention curves to eliminate mid-video drop-offs.",
+          "order": 2
+        }
+      ]
+    }
+  ],
+  "packageCourses": [
+    {
+      "id": "pc-1",
+      "packageId": "pkg-gold",
+      "courseId": "crs-video-editing",
+      "sortOrder": 1
+    },
+    {
+      "id": "pc-2",
+      "packageId": "pkg-gold",
+      "courseId": "crs-canva-design",
+      "sortOrder": 2
+    },
+    {
+      "id": "pc-3",
+      "packageId": "pkg-gold",
+      "courseId": "crs-instagram-growth",
+      "sortOrder": 3
+    },
+    {
+      "id": "pc-4",
+      "packageId": "pkg-platinum",
+      "courseId": "crs-video-editing",
+      "sortOrder": 1
+    },
+    {
+      "id": "pc-5",
+      "packageId": "pkg-platinum",
+      "courseId": "crs-canva-design",
+      "sortOrder": 2
+    },
+    {
+      "id": "pc-6",
+      "packageId": "pkg-platinum",
+      "courseId": "crs-instagram-growth",
+      "sortOrder": 3
+    },
+    {
+      "id": "pc-7",
+      "packageId": "pkg-platinum",
+      "courseId": "crs-youtube-mastery",
+      "sortOrder": 4
+    },
+    {
+      "id": "pc-8",
+      "packageId": "pkg-diamond",
+      "courseId": "crs-video-editing",
+      "sortOrder": 1
+    },
+    {
+      "id": "pc-9",
+      "packageId": "pkg-diamond",
+      "courseId": "crs-canva-design",
+      "sortOrder": 2
+    },
+    {
+      "id": "pc-10",
+      "packageId": "pkg-diamond",
+      "courseId": "crs-instagram-growth",
+      "sortOrder": 3
+    },
+    {
+      "id": "pc-11",
+      "packageId": "pkg-diamond",
+      "courseId": "crs-youtube-mastery",
+      "sortOrder": 4
+    },
+    {
+      "id": "pc-12",
+      "packageId": "pkg-premium-pro",
+      "courseId": "crs-video-editing",
+      "sortOrder": 1
+    },
+    {
+      "id": "pc-13",
+      "packageId": "pkg-premium-pro",
+      "courseId": "crs-canva-design",
+      "sortOrder": 2
+    },
+    {
+      "id": "pc-14",
+      "packageId": "pkg-premium-pro",
+      "courseId": "crs-instagram-growth",
+      "sortOrder": 3
+    },
+    {
+      "id": "pc-15",
+      "packageId": "pkg-premium-pro",
+      "courseId": "crs-youtube-mastery",
+      "sortOrder": 4
+    }
+  ],
+  "orders": [],
+  "payments": [],
+  "referrals": [],
+  "commissionLedger": [],
+  "walletLedger": [],
+  "withdrawals": [],
+  "notifications": [],
+  "offers": [],
+  "supportTickets": [],
+  "auditLogs": [],
+  "adminAllowlist": [
+    "sawn6849@gmail.com"
+  ],
+  "settings": {
+    "id": "public",
+    "siteName": "SavvvnLab",
+    "tagline": "Learn · Create · Grow",
+    "heroTitle": "Build High-Income Digital Skills with Structured Learning Packages",
+    "heroSubtitle": "Master video editing, visual design, and creator growth through practical step-by-step courses—and earn verified partner rewards when you share.",
+    "aboutSummary": "SavvvnLab is a creator-focused digital learning platform built around structured skill packages, manual transaction integrity, and transparent partner accounting.",
+    "supportEmail": "support@savvvnlab.in",
+    "supportPhone": "+91 98765 00000",
+    "instagramUrl": "https://instagram.com",
+    "youtubeUrl": "https://youtube.com",
+    "telegramUrl": "https://t.me",
+    "whatsappUrl": "https://whatsapp.com",
+    "upiId": "469519102@ybl",
+    "upiPayeeName": "SavvvnLab",
+    "upiInstructions": "Scan the QR code or copy the UPI ID above, pay the exact package amount, and submit your 12-digit UTR along with a clear payment screenshot.",
+    "customUpiQrUrl": "",
+    "defaultCommissionPercent": 25,
+    "autoApproveCommission": false,
+    "minWithdrawal": 500,
+    "maxWithdrawal": 25000,
+    "updatedAt": "2026-11-22T05:09:35.387Z"
+  }
+}

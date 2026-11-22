@@ -26,7 +26,13 @@ import type {
 } from './src/types/savvvn';
 
 export const app = express();
-const OWNER_ADMIN_EMAIL = 'sawnk340@gmail.com';
+const OWNER_ADMIN_EMAIL = 'sawn6849@gmail.com';
+const DEFAULT_UPI_ID = '469519102@ybl';
+const DEFAULT_UPI_PAYEE_NAME = 'SavvvnLab';
+
+function isAuthorizedAdminEmail(email?: string | null): boolean {
+  return (email || '').trim().toLowerCase() === OWNER_ADMIN_EMAIL;
+}
 
 app.use((req, res, next) => {
   // Normalize Netlify Function prefix (/.netlify/functions/api/...) to /api/...
@@ -94,7 +100,11 @@ function resolveDbPaths(): { dataDir: string; dbFile: string } {
   return { dataDir: tmpDir, dbFile: tmpFile };
 }
 
-const { dbFile: DB_FILE } = resolveDbPaths();
+const { dataDir: DATA_DIR, dbFile: DB_FILE } = resolveDbPaths();
+const AVATARS_DIR = path.join(DATA_DIR, 'avatars');
+if (!fs.existsSync(AVATARS_DIR)) {
+  fs.mkdirSync(AVATARS_DIR, { recursive: true });
+}
 
 interface SavvvnDatabase {
   users: UserProfile[];
@@ -416,8 +426,8 @@ function createInitialDatabase(): SavvvnDatabase {
       youtubeUrl: 'https://youtube.com',
       telegramUrl: 'https://t.me',
       whatsappUrl: 'https://whatsapp.com',
-      upiId: '',
-      upiPayeeName: 'SavvvnLab Official',
+      upiId: DEFAULT_UPI_ID,
+      upiPayeeName: DEFAULT_UPI_PAYEE_NAME,
       upiInstructions:
         'Scan the QR code or copy the UPI ID above, pay the exact package amount, and submit your 12-digit UTR along with a clear payment screenshot.',
       customUpiQrUrl: '',
@@ -438,10 +448,21 @@ function readDb(): SavvvnDatabase {
     if (fs.existsSync(DB_FILE)) {
       const parsed = JSON.parse(fs.readFileSync(DB_FILE, 'utf-8'));
       if (parsed && Array.isArray(parsed.packages)) {
-        if (!Array.isArray(parsed.adminAllowlist) || !parsed.adminAllowlist.includes(OWNER_ADMIN_EMAIL)) {
-          parsed.adminAllowlist = Array.from(
-            new Set([OWNER_ADMIN_EMAIL, ...(parsed.adminAllowlist || [])])
-          );
+        // Enforce exclusive admin allowlist & roles while preserving all existing records
+        parsed.adminAllowlist = [OWNER_ADMIN_EMAIL];
+        if (Array.isArray(parsed.users)) {
+          parsed.users = parsed.users.map((u: UserProfile) => ({
+            ...u,
+            role: isAuthorizedAdminEmail(u.email) ? 'admin' : 'member',
+          }));
+        }
+        if (parsed.settings) {
+          if (!parsed.settings.upiId || !String(parsed.settings.upiId).trim()) {
+            parsed.settings.upiId = DEFAULT_UPI_ID;
+          }
+          if (!parsed.settings.upiPayeeName || !String(parsed.settings.upiPayeeName).trim()) {
+            parsed.settings.upiPayeeName = DEFAULT_UPI_PAYEE_NAME;
+          }
         }
         dbCache = parsed as SavvvnDatabase;
         return dbCache;
@@ -621,14 +642,17 @@ async function requireMember(req: AuthedRequest, res: Response, next: NextFuncti
 
 async function requireAdmin(req: AuthedRequest, res: Response, next: NextFunction) {
   await requireMember(req, res, () => {
-    const db = readDb();
-    const email = (req.currentUser?.email || '').toLowerCase();
+    const tokenEmail = (req.authToken?.email || '').trim().toLowerCase();
+    const userEmail = (req.currentUser?.email || '').trim().toLowerCase();
     const isAllowed =
-      email === OWNER_ADMIN_EMAIL ||
-      db.adminAllowlist.map((e) => e.toLowerCase()).includes(email) ||
+      Boolean(req.authToken?.emailVerified) &&
+      isAuthorizedAdminEmail(tokenEmail) &&
+      isAuthorizedAdminEmail(userEmail) &&
       req.currentUser?.role === 'admin';
     if (!isAllowed) {
-      return res.status(403).json({ error: 'Administrator access required' });
+      return res.status(403).json({
+        error: 'Administrator access is restricted exclusively to the authorized admin account.',
+      });
     }
     return next();
   });
@@ -824,6 +848,23 @@ app.get('/api/public/catalog', (_req, res) => {
   res.json(response);
 });
 
+app.get('/api/public/avatars/:filename', (req, res) => {
+  const safeName = path.basename(String(req.params.filename || '')).replace(/[^a-zA-Z0-9._-]/g, '');
+  if (!safeName || !/\.(jpg|jpeg|png|webp)$/i.test(safeName)) {
+    return res.status(400).json({ error: 'Invalid avatar filename' });
+  }
+  const filePath = path.join(AVATARS_DIR, safeName);
+  if (!fs.existsSync(filePath)) {
+    return res.status(404).json({ error: 'Avatar not found' });
+  }
+  const ext = path.extname(safeName).toLowerCase();
+  const mime =
+    ext === '.png' ? 'image/png' : ext === '.webp' ? 'image/webp' : 'image/jpeg';
+  res.setHeader('Content-Type', mime);
+  res.setHeader('Cache-Control', 'public, max-age=31536000');
+  return res.sendFile(filePath);
+});
+
 app.post('/api/public/contact', async (req, res) => {
   try {
     const { name, email, subject, message } = req.body || {};
@@ -875,19 +916,19 @@ app.post('/api/auth/session', requireAuth, async (req: AuthedRequest, res) => {
     // Fast-path unchanged existing users without acquiring DB write lock or rewriting disk
     const currentDb = readDb();
     const email = token.email.toLowerCase();
-    const isAdminEmailFast =
-      email === OWNER_ADMIN_EMAIL ||
-      currentDb.adminAllowlist.some((e) => e.toLowerCase() === email);
+    const isAdminEmailFast = Boolean(token.emailVerified && isAuthorizedAdminEmail(email));
     const existingFast = currentDb.users.find((u) => u.uid === token.uid);
 
     if (existingFast) {
       if (existingFast.status === 'suspended') {
         return res.status(403).json({ error: 'Your account has been suspended by administrator.' });
       }
-      const expectedRole: UserProfile['role'] = isAdminEmailFast ? 'admin' : existingFast.role;
+      const expectedRole: UserProfile['role'] = isAdminEmailFast ? 'admin' : 'member';
       const needsEmailUpdate = Boolean(email && existingFast.email !== email);
       const needsRoleUpdate = existingFast.role !== expectedRole;
-      const needsPhotoBackfill = Boolean(token.picture && !existingFast.photoURL);
+      const needsPhotoBackfill = Boolean(
+        token.picture && existingFast.photoURL === undefined && !existingFast.photoRemoved
+      );
       const canBindSponsor =
         !existingFast.referredByUid &&
         Boolean(cleanRef) &&
@@ -901,9 +942,7 @@ app.post('/api/auth/session', requireAuth, async (req: AuthedRequest, res) => {
     }
 
     const user = await withDbLock((db) => {
-      const isAdminEmail =
-        email === OWNER_ADMIN_EMAIL ||
-        db.adminAllowlist.some((e) => e.toLowerCase() === email);
+      const isAdminEmail = Boolean(token.emailVerified && isAuthorizedAdminEmail(email));
 
       let existing = db.users.find((u) => u.uid === token.uid);
       const ts = nowIso();
@@ -920,7 +959,8 @@ app.post('/api/auth/session', requireAuth, async (req: AuthedRequest, res) => {
           uid: token.uid,
           email,
           displayName: token.name || email.split('@')[0] || 'Member',
-          photoURL: token.picture,
+          photoURL: token.picture || '',
+          photoRemoved: false,
           phone: '',
           role: isAdminEmail ? 'admin' : 'member',
           status: 'active',
@@ -959,8 +999,10 @@ app.post('/api/auth/session', requireAuth, async (req: AuthedRequest, res) => {
         addAuditLog(db, existing.uid, existing.email, 'USER_REGISTERED', `users/${existing.uid}`, `Role: ${existing.role}`);
       } else {
         existing.email = email || existing.email;
-        existing.role = isAdminEmail ? 'admin' : existing.role;
-        if (token.picture && !existing.photoURL) existing.photoURL = token.picture;
+        existing.role = isAdminEmail ? 'admin' : 'member';
+        if (token.picture && existing.photoURL === undefined && !existing.photoRemoved) {
+          existing.photoURL = token.picture;
+        }
         // Bind sponsor ONLY if user currently has no sponsor and no orders yet
         if (!existing.referredByUid && cleanRef) {
           const sponsor = db.users.find(
@@ -1060,10 +1102,36 @@ app.get('/api/me/overview', requireMember, (req: AuthedRequest, res) => {
   res.json(overview);
 });
 
+app.post('/api/me/avatar', requireMember, async (req: AuthedRequest, res) => {
+  try {
+    const uid = req.currentUser!.uid;
+    const { dataUrl } = req.body || {};
+    if (typeof dataUrl !== 'string') {
+      return res.status(400).json({ error: 'Image payload is required.' });
+    }
+    const match = dataUrl.match(/^data:(image\/(?:jpeg|png|webp));base64,([A-Za-z0-9+/=]+)$/);
+    if (!match) {
+      return res.status(400).json({ error: 'Unsupported image format. Use JPG, PNG, or WebP.' });
+    }
+    const mime = match[1];
+    const buffer = Buffer.from(match[2], 'base64');
+    if (buffer.length > 4 * 1024 * 1024) {
+      return res.status(400).json({ error: 'Profile picture exceeds 4 MB limit.' });
+    }
+    const ext = mime === 'image/png' ? 'png' : mime === 'image/webp' ? 'webp' : 'jpg';
+    const safeUid = uid.replace(/[^a-zA-Z0-9_-]/g, '') || 'user';
+    const filename = `${safeUid}-${Date.now()}.${ext}`;
+    fs.writeFileSync(path.join(AVATARS_DIR, filename), buffer);
+    return res.json({ url: `/api/public/avatars/${filename}` });
+  } catch (err: any) {
+    return res.status(500).json({ error: err?.message || 'Failed to store profile picture' });
+  }
+});
+
 app.patch('/api/me/profile', requireMember, async (req: AuthedRequest, res) => {
   try {
     const uid = req.currentUser!.uid;
-    const { displayName, phone, upiId } = req.body || {};
+    const { displayName, phone, upiId, photoURL } = req.body || {};
 
     const updated = await withDbLock((db) => {
       const user = db.users.find((u) => u.uid === uid);
@@ -1081,6 +1149,21 @@ app.patch('/api/me/profile', requireMember, async (req: AuthedRequest, res) => {
           throw new Error('UPI ID must be in valid handle format (e.g. name@upi)');
         }
         user.upiId = cleanUpi;
+      }
+      if (typeof photoURL === 'string') {
+        const cleanPhoto = photoURL.trim().slice(0, 1000);
+        if (cleanPhoto === '') {
+          user.photoURL = '';
+          user.photoRemoved = true;
+        } else if (
+          cleanPhoto.startsWith('https://') ||
+          cleanPhoto.startsWith('/api/public/avatars/')
+        ) {
+          user.photoURL = cleanPhoto;
+          user.photoRemoved = false;
+        } else {
+          throw new Error('Invalid profile picture URL.');
+        }
       }
       user.updatedAt = nowIso();
       return user;
@@ -2348,41 +2431,10 @@ app.put('/api/admin/settings', requireAdmin, async (req: AuthedRequest, res) => 
   }
 });
 
-app.put('/api/admin/security/admins', requireAdmin, async (req: AuthedRequest, res) => {
-  try {
-    const admin = req.currentUser!;
-    const { action, email } = req.body || {};
-    const cleanEmail = typeof email === 'string' ? email.trim().toLowerCase() : '';
-    if (!cleanEmail || !cleanEmail.includes('@')) {
-      return res.status(400).json({ error: 'Valid email is required' });
-    }
-
-    const allowlist = await withDbLock((db) => {
-      if (action === 'add') {
-        if (!db.adminAllowlist.includes(cleanEmail)) {
-          db.adminAllowlist.push(cleanEmail);
-        }
-        const targetUser = db.users.find((u) => u.email.toLowerCase() === cleanEmail);
-        if (targetUser) targetUser.role = 'admin';
-        addAuditLog(db, admin.uid, admin.email, 'ADMIN_ADDED', 'adminSecurity', `Added admin: ${cleanEmail}`);
-      } else if (action === 'remove') {
-        if (cleanEmail === OWNER_ADMIN_EMAIL) {
-          throw new Error('Primary platform owner cannot be removed from admin security');
-        }
-        db.adminAllowlist = db.adminAllowlist.filter((e) => e.toLowerCase() !== cleanEmail);
-        const targetUser = db.users.find((u) => u.email.toLowerCase() === cleanEmail);
-        if (targetUser) targetUser.role = 'member';
-        addAuditLog(db, admin.uid, admin.email, 'ADMIN_REMOVED', 'adminSecurity', `Removed admin: ${cleanEmail}`);
-      } else {
-        throw new Error('Action must be add or remove');
-      }
-      return db.adminAllowlist;
-    });
-
-    res.json({ adminAllowlist: allowlist });
-  } catch (err: any) {
-    res.status(400).json({ error: err?.message || 'Admin security update failed' });
-  }
+app.put('/api/admin/security/admins', requireAdmin, async (_req: AuthedRequest, res) => {
+  return res.status(403).json({
+    error: `Administrator access is strictly locked exclusively to ${OWNER_ADMIN_EMAIL}.`,
+  });
 });
 
 // Explicit JSON 404 for unknown API paths

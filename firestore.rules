@@ -25,10 +25,7 @@ service cloud.firestore {
     }
 
     function isAdmin() {
-      return isSignedIn() && (
-        request.auth.token.email == 'sawnk340@gmail.com' ||
-        exists(/databases/$(database)/documents/admins/$(request.auth.uid))
-      );
+      return isSignedIn() && request.auth.token.email == 'sawn6849@gmail.com';
     }
 
     // Validation helpers
@@ -106,7 +103,10 @@ service cloud.firestore {
     match /users/{userId} {
       allow get: if isValidId(userId) && (isAdmin() || (isSignedIn() && request.auth.uid == userId));
       allow list: if isAdmin() || (isSignedIn() && resource.data.uid == request.auth.uid);
-      allow create: if isValidId(userId) && isSignedIn() && isValidUserCreate(incoming(), userId);
+      allow create: if isValidId(userId) && isSignedIn() && (
+        (isAdmin() && incoming().uid == userId && incoming().keys().hasAll(['uid', 'email', 'displayName', 'role', 'status', 'referralCode', 'createdAt'])) ||
+        isValidUserCreate(incoming(), userId)
+      );
       allow update: if isValidId(userId) && (
         isAdmin() ||
         (

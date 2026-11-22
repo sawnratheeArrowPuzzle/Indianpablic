@@ -1221,7 +1221,6 @@ export const AdminCommunicationAndSecurity: React.FC<
   const [ntfTitle, setNtfTitle] = useState('');
   const [ntfMsg, setNtfMsg] = useState('');
 
-  const [adminEmail, setAdminEmail] = useState('');
   const [replyMap, setReplyMap] = useState<Record<string, { status: 'open' | 'in_progress' | 'resolved'; text: string }>>({});
   const [busy, setBusy] = useState(false);
 
@@ -1472,63 +1471,20 @@ export const AdminCommunicationAndSecurity: React.FC<
     <div className="max-w-2xl bg-white border border-slate-200 rounded-xl p-6 space-y-5">
       <div>
         <h2 className="font-display text-lg font-bold text-[#0B1E36]">
-          Admin Security & Role Allowlist
+          Admin Security & Access Control
         </h2>
         <p className="text-xs text-slate-500 mt-1">
-          Only verified Google accounts on this server allowlist receive administrator permissions. The primary owner cannot be removed.
+          Administrator privileges are strictly locked on both Firebase authentication rules and backend authorization to the primary owner Google account below. Other accounts always remain standard members.
         </p>
       </div>
-
-      <form
-        onSubmit={async (e) => {
-          e.preventDefault();
-          if (!adminEmail.trim()) return;
-          setBusy(true);
-          try {
-            await api.updateAdminAllowlist('add', adminEmail.trim());
-            setAdminEmail('');
-            await onReload();
-          } finally {
-            setBusy(false);
-          }
-        }}
-        className="flex gap-2"
-      >
-        <input
-          type="email"
-          required
-          placeholder="new-admin@gmail.com"
-          value={adminEmail}
-          onChange={(e) => setAdminEmail(e.target.value)}
-          className="flex-1 px-3.5 py-2 rounded-lg border border-slate-300 text-sm"
-        />
-        <button
-          type="submit"
-          disabled={busy}
-          className="px-4 py-2 rounded-lg bg-[#0B1E36] text-white text-xs font-semibold cursor-pointer"
-        >
-          Grant Admin Role
-        </button>
-      </form>
 
       <div className="divide-y divide-slate-100 border-t border-slate-200">
         {data.adminAllowlist.map((email) => (
           <div key={email} className="py-3 flex items-center justify-between text-sm">
             <span className="font-mono-num text-[#0B1E36]">{email}</span>
-            {email === 'sawnk340@gmail.com' ? (
-              <span className="text-xs font-semibold text-[#6D28D9]">Primary Owner</span>
-            ) : (
-              <button
-                type="button"
-                onClick={async () => {
-                  await api.updateAdminAllowlist('remove', email);
-                  await onReload();
-                }}
-                className="text-xs font-semibold text-red-600 cursor-pointer"
-              >
-                Revoke
-              </button>
-            )}
+            <span className="text-xs font-semibold text-[#6D28D9]">
+              {email.toLowerCase() === 'sawn6849@gmail.com' ? 'Authorized Owner Admin' : 'Restricted'}
+            </span>
           </div>
         ))}
       </div>
