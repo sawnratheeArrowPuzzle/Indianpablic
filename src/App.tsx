@@ -257,31 +257,14 @@ export function App() {
     navigate('home');
   }, [navigate]);
 
-  if (!catalog) {
+  if (!catalog && !catalogError) {
     return (
       <div className="min-h-screen bg-[#F8FAFC] flex items-center justify-center p-6">
-        {catalogError ? (
-          <div className="max-w-md w-full bg-white border border-slate-200 rounded-xl p-6 space-y-4 text-center">
-            <BrandLogo variant="full" className="mx-auto" />
-            <h1 className="font-display text-lg font-bold text-[#0B1E36]">
-              SavvvnLab Catalog Unavailable
-            </h1>
-            <p className="text-sm text-slate-600">{catalogError}</p>
-            <button
-              type="button"
-              onClick={loadCatalog}
-              className="px-5 py-2.5 rounded-lg bg-[#0B1E36] text-white text-sm font-semibold hover:bg-[#132f53] cursor-pointer"
-            >
-              Retry
-            </button>
-          </div>
-        ) : (
-          <div className="text-center space-y-4">
-            <BrandLogo variant="full" className="mx-auto" />
-            <div className="w-7 h-7 rounded-full border-2 border-[#4F1CEB] border-t-transparent animate-spin mx-auto" />
-            <p className="text-sm text-slate-600 font-medium">Loading SavvvnLab...</p>
-          </div>
-        )}
+        <div className="text-center space-y-4">
+          <BrandLogo variant="full" className="mx-auto" />
+          <div className="w-7 h-7 rounded-full border-2 border-[#4F1CEB] border-t-transparent animate-spin mx-auto" />
+          <p className="text-sm text-slate-600 font-medium">Loading SavvvnLab...</p>
+        </div>
       </div>
     );
   }
@@ -302,7 +285,7 @@ export function App() {
   }
 
   // Full-screen Member Workspace
-  if (route === 'dashboard' && user) {
+  if (route === 'dashboard' && user && catalog) {
     return (
       <MemberPortal
         user={user}
@@ -317,6 +300,55 @@ export function App() {
       />
     );
   }
+
+  const fallbackSettings = {
+    siteName: 'SavvvnLab',
+    tagline: 'Learn · Create · Grow',
+    heroTitle: 'Learn Today, Grow Tomorrow',
+    heroSubtitle: 'Upgrade Your Skills with SavvvnLab',
+    aboutSummary:
+      'SavvvnLab is a creator-focused digital learning platform built around structured skill packages.',
+    supportEmail: 'support@savvvnlab.in',
+    supportPhone: '+91 98765 00000',
+    instagramUrl: '',
+    youtubeUrl: '',
+    telegramUrl: '',
+    whatsappUrl: '',
+    upiId: '',
+    upiPayeeName: 'SavvvnLab Official',
+    upiInstructions: '',
+    customUpiQrUrl: '',
+    minWithdrawal: 500,
+    defaultCommissionPercent: 25,
+  };
+
+  const catalogUnavailableCard = (
+    <div className="max-w-lg mx-auto px-4 py-16">
+      <div className="bg-white border border-slate-200 rounded-2xl p-6 sm:p-8 space-y-4 text-center shadow-xs">
+        <BrandLogo variant="full" className="mx-auto" />
+        <h1 className="font-display text-xl font-bold text-[#0B1E36]">
+          Catalog Unavailable
+        </h1>
+        <p className="text-sm text-slate-600">{catalogError}</p>
+        <div className="flex items-center justify-center gap-3 pt-1">
+          <button
+            type="button"
+            onClick={loadCatalog}
+            className="px-5 py-2.5 rounded-lg bg-[#0B1E36] hover:bg-[#132f53] text-white text-sm font-semibold cursor-pointer"
+          >
+            Retry
+          </button>
+          <button
+            type="button"
+            onClick={() => navigate('support')}
+            className="px-4 py-2.5 rounded-lg border border-slate-300 text-sm font-medium text-[#0B1E36] hover:bg-slate-50 cursor-pointer"
+          >
+            Support
+          </button>
+        </div>
+      </div>
+    </div>
+  );
 
   return (
     <div className="min-h-screen flex flex-col bg-[#F8FAFC] text-[#0F172A]">
@@ -357,46 +389,83 @@ export function App() {
       )}
 
       <main className="flex-1">
-        {route === 'home' && (
-          <HomePage
-            catalog={catalog}
-            onSelectPackage={handleSelectPackage}
-            onBuyPackage={handleBuyPackage}
+        {route === 'home' &&
+          (catalog ? (
+            <HomePage
+              catalog={catalog}
+              onSelectPackage={handleSelectPackage}
+              onBuyPackage={handleBuyPackage}
+              onNavigate={navigate}
+            />
+          ) : (
+            catalogUnavailableCard
+          ))}
+
+        {route === 'packages' &&
+          (catalog ? (
+            <PackagesPage
+              catalog={catalog}
+              onSelectPackage={handleSelectPackage}
+              onBuyPackage={handleBuyPackage}
+            />
+          ) : (
+            catalogUnavailableCard
+          ))}
+
+        {route === 'package-detail' &&
+          (catalog && selectedPackage ? (
+            <PackageDetailPage
+              pkg={selectedPackage}
+              catalog={catalog}
+              onBack={() => navigate('packages')}
+              onBuyPackage={handleBuyPackage}
+            />
+          ) : (
+            catalogUnavailableCard
+          ))}
+
+        {route === 'checkout' &&
+          (catalog && selectedPackage ? (
+            <CheckoutView
+              pkg={selectedPackage}
+              catalog={catalog}
+              user={user}
+              referralCode={referralCode}
+              onGoogleSignIn={() => handleGoogleSignIn('checkout')}
+              onBack={() => navigate('package-detail')}
+              onGoToDashboard={() => navigate('dashboard')}
+            />
+          ) : (
+            catalogUnavailableCard
+          ))}
+
+        {route === 'about' && (
+          <AboutPage
+            catalog={
+              catalog || {
+                packages: [],
+                courses: [],
+                packageCourses: [],
+                offers: [],
+                settings: fallbackSettings,
+              }
+            }
             onNavigate={navigate}
           />
         )}
-
-        {route === 'packages' && (
-          <PackagesPage
-            catalog={catalog}
-            onSelectPackage={handleSelectPackage}
-            onBuyPackage={handleBuyPackage}
+        {route === 'contact' && (
+          <ContactPage
+            catalog={
+              catalog || {
+                packages: [],
+                courses: [],
+                packageCourses: [],
+                offers: [],
+                settings: fallbackSettings,
+              }
+            }
           />
         )}
-
-        {route === 'package-detail' && selectedPackage && (
-          <PackageDetailPage
-            pkg={selectedPackage}
-            catalog={catalog}
-            onBack={() => navigate('packages')}
-            onBuyPackage={handleBuyPackage}
-          />
-        )}
-
-        {route === 'checkout' && selectedPackage && (
-          <CheckoutView
-            pkg={selectedPackage}
-            catalog={catalog}
-            user={user}
-            referralCode={referralCode}
-            onGoogleSignIn={() => handleGoogleSignIn('checkout')}
-            onBack={() => navigate('package-detail')}
-            onGoToDashboard={() => navigate('dashboard')}
-          />
-        )}
-
-        {route === 'about' && <AboutPage catalog={catalog} onNavigate={navigate} />}
-        {route === 'contact' && <ContactPage catalog={catalog} />}
         {route === 'support' && (
           <SupportPage
             user={user}
@@ -409,6 +478,7 @@ export function App() {
         {route === 'privacy' && <PrivacyPage />}
 
         {/* If user navigated to dashboard/admin while signed out, show prompt cleanly */}
+        {route === 'dashboard' && user && !catalog && catalogUnavailableCard}
         {(route === 'dashboard' || route === 'admin') && !user && (
           <div className="max-w-lg mx-auto px-4 py-16 text-center space-y-5">
             <BrandLogo variant="full" className="mx-auto" />
@@ -445,8 +515,8 @@ export function App() {
       <Footer
         onNavigate={navigate}
         onSelectPackage={handleSelectPackage}
-        packages={catalog.packages}
-        settings={catalog.settings}
+        packages={catalog?.packages || []}
+        settings={catalog?.settings || fallbackSettings}
       />
     </div>
   );

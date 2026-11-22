@@ -1,17 +1,22 @@
 import type { User } from 'firebase/auth';
-import { auth } from '../lib/firebase';
+import { collection, doc, getDoc, getDocs, query, where } from 'firebase/firestore';
+import { auth, db } from '../lib/firebase';
 import type {
   AdminOverviewResponse,
   AdminSettings,
   Course,
   MemberOverviewResponse,
+  OfferItem,
   Order,
   Package,
+  PackageCourse,
   Payment,
   PublicCatalogResponse,
   UserProfile,
   Withdrawal,
 } from '../types/savvvn';
+
+const API_BASE = (import.meta.env.VITE_API_BASE_URL || '').trim().replace(/\/+$/, '');
 
 async function getAuthHeaders(targetUser?: User | null): Promise<HeadersInit> {
   const user = targetUser || auth.currentUser;
@@ -35,7 +40,9 @@ async function requestJson<T>(
     ? await getAuthHeaders(targetUser)
     : { 'Content-Type': 'application/json' };
 
-  const res = await fetch(url, {
+  const targetUrl = url.startsWith('http') ? url : `${API_BASE}${url}`;
+
+  const res = await fetch(targetUrl, {
     ...options,
     headers: {
       ...headers,
@@ -50,11 +57,87 @@ async function requestJson<T>(
   return data as T;
 }
 
+async function fetchPublicCatalogFromFirestore(): Promise<PublicCatalogResponse> {
+  const [pkgSnap, crsSnap, pcSnap, settingsSnap] = await Promise.all([
+    getDocs(query(collection(db, 'packages'), where('active', '==', true))),
+    getDocs(query(collection(db, 'courses'), where('active', '==', true))),
+    getDocs(collection(db, 'packageCourses')),
+    getDoc(doc(db, 'adminSettings', 'public')),
+  ]);
+
+  const packages = pkgSnap.docs
+    .map((d) => ({ ...(d.data() as Package), id: d.id }))
+    .filter((p) => p.active !== false)
+    .sort((a, b) => (a.sortOrder || 0) - (b.sortOrder || 0));
+
+  if (!packages.length) {
+    throw new Error('No published packages found in Firestore.');
+  }
+
+  const courses = crsSnap.docs.map((d) => ({ ...(d.data() as Course), id: d.id }));
+  const packageCourses = pcSnap.docs.map((d) => ({ ...(d.data() as PackageCourse), id: d.id }));
+  const rawSettings = settingsSnap.exists() ? (settingsSnap.data() as Partial<AdminSettings>) : {};
+
+  return {
+    packages,
+    courses,
+    packageCourses,
+    offers: [] as OfferItem[],
+    settings: {
+      siteName: rawSettings.siteName || 'SavvvnLab',
+      tagline: rawSettings.tagline || 'Learn · Create · Grow',
+      heroTitle:
+        rawSettings.heroTitle ||
+        'Build High-Income Digital Skills with Structured Learning Packages',
+      heroSubtitle:
+        rawSettings.heroSubtitle ||
+        'Master video editing, visual design, and creator growth through practical step-by-step courses.',
+      aboutSummary:
+        rawSettings.aboutSummary ||
+        'SavvvnLab is a creator-focused digital learning platform built around structured skill packages.',
+      supportEmail: rawSettings.supportEmail || 'support@savvvnlab.in',
+      supportPhone: rawSettings.supportPhone || '+91 98765 00000',
+      instagramUrl: rawSettings.instagramUrl || '',
+      youtubeUrl: rawSettings.youtubeUrl || '',
+      telegramUrl: rawSettings.telegramUrl || '',
+      whatsappUrl: rawSettings.whatsappUrl || '',
+      upiId: rawSettings.upiId || '',
+      upiPayeeName: rawSettings.upiPayeeName || 'SavvvnLab Official',
+      upiInstructions:
+        rawSettings.upiInstructions ||
+        'Scan the QR code or copy the UPI ID above, pay the exact package amount, and submit your 12-digit UTR.',
+      customUpiQrUrl: rawSettings.customUpiQrUrl || '',
+      minWithdrawal: Number(rawSettings.minWithdrawal) || 500,
+      defaultCommissionPercent: Number(rawSettings.defaultCommissionPercent) || 25,
+    },
+  };
+}
+
 const inFlightSessionRequests = new Map<string, Promise<{ user: UserProfile }>>();
 
 export const api = {
   // Public
-  getPublicCatalog: () => requestJson<PublicCatalogResponse>('/api/public/catalog'),
+  getPublicCatalog: async (): Promise<PublicCatalogResponse> => {
+    try {
+      const catalog = await requestJson<PublicCatalogResponse>('/api/public/catalog');
+      if (catalog && Array.isArray(catalog.packages)) {
+        return {
+          ...catalog,
+          packages: catalog.packages
+            .filter((p) => p.active !== false)
+            .sort((a, b) => (a.sortOrder || 0) - (b.sortOrder || 0)),
+        };
+      }
+      throw new Error('Invalid catalog response format');
+    } catch (apiError) {
+      // If deployed statically without backend API, try real Firestore catalog if rules allow; otherwise surface actual API error
+      try {
+        return await fetchPublicCatalogFromFirestore();
+      } catch {
+        throw apiError;
+      }
+    }
+  },
 
   submitPublicContact: (payload: { name: string; email: string; subject: string; message: string }) =>
     requestJson<{ success: boolean }>('/api/public/contact', {
