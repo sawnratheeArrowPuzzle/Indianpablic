@@ -14,7 +14,13 @@ import {
   Star,
 } from 'lucide-react';
 import { api } from '../../services/api';
-import { deletePackageCoverByUrl, uploadPackageCover } from '../../lib/firebase';
+import {
+  deletePackageCoverByUrl,
+  deletePackageFromFirestore,
+  syncPackageToFirestore,
+  uploadPackageCover,
+} from '../../lib/firebase';
+import { PackageCoverImage } from '../common/PackageCoverImage';
 import { PackageCoverCropModal } from './PackageCoverCropModal';
 import type { AdminOverviewResponse, Course, CourseLesson, Package } from '../../types/savvvn';
 
@@ -23,7 +29,21 @@ interface SharedAdminProps {
   onReload: () => Promise<void>;
 }
 
-const ACCEPTED_IMAGE_TYPES = ['image/jpeg', 'image/png', 'image/webp'];
+function isAcceptedPackageImage(file: File): boolean {
+  const mime = (file.type || '').toLowerCase().trim();
+  if (
+    mime === 'image/jpeg' ||
+    mime === 'image/jpg' ||
+    mime === 'image/png' ||
+    mime === 'image/webp'
+  ) {
+    return true;
+  }
+  if (!mime || mime === 'application/octet-stream') {
+    return /\.(jpe?g|png|webp)$/i.test(file.name || '');
+  }
+  return false;
+}
 
 export const AdminPackagesManager: React.FC<SharedAdminProps> = ({ data, onReload }) => {
   const [editing, setEditing] = useState<Partial<Package> | null>(null);
@@ -31,6 +51,9 @@ export const AdminPackagesManager: React.FC<SharedAdminProps> = ({ data, onReloa
   const [benefitsText, setBenefitsText] = useState('');
   const [busy, setBusy] = useState(false);
   const [uploadingCover, setUploadingCover] = useState(false);
+  const [uploadProgress, setUploadProgress] = useState<number | null>(null);
+  const [pendingDeleteCovers, setPendingDeleteCovers] = useState<string[]>([]);
+  const [unsavedUploadedCovers, setUnsavedUploadedCovers] = useState<string[]>([]);
   const [cropSourceFile, setCropSourceFile] = useState<File | null>(null);
   const [lastSelectedFile, setLastSelectedFile] = useState<File | null>(null);
   const [msg, setMsg] = useState<string | null>(null);
@@ -54,6 +77,9 @@ export const AdminPackagesManager: React.FC<SharedAdminProps> = ({ data, onReloa
     setSelectedCourseIds([]);
     setBenefitsText('');
     setLastSelectedFile(null);
+    setPendingDeleteCovers([]);
+    setUnsavedUploadedCovers([]);
+    setUploadProgress(null);
     setMsg(null);
   };
 
@@ -66,14 +92,28 @@ export const AdminPackagesManager: React.FC<SharedAdminProps> = ({ data, onReloa
     setSelectedCourseIds(mappedIds);
     setBenefitsText(pkg.benefits.join('\n'));
     setLastSelectedFile(null);
+    setPendingDeleteCovers([]);
+    setUnsavedUploadedCovers([]);
+    setUploadProgress(null);
     setMsg(null);
+  };
+
+  const closeEditor = () => {
+    if (unsavedUploadedCovers.length > 0) {
+      void Promise.allSettled(unsavedUploadedCovers.map((url) => deletePackageCoverByUrl(url)));
+    }
+    setPendingDeleteCovers([]);
+    setUnsavedUploadedCovers([]);
+    setUploadProgress(null);
+    setLastSelectedFile(null);
+    setEditing(null);
   };
 
   const handleFileChosen = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     e.target.value = '';
     if (!file) return;
-    if (!ACCEPTED_IMAGE_TYPES.includes(file.type)) {
+    if (!isAcceptedPackageImage(file)) {
       setMsg('Unsupported format. Please select a JPG, PNG, or WebP image.');
       return;
     }
@@ -90,19 +130,30 @@ export const AdminPackagesManager: React.FC<SharedAdminProps> = ({ data, onReloa
     if (!editing) return;
     setCropSourceFile(null);
     setUploadingCover(true);
+    setUploadProgress(0);
     setMsg(null);
     try {
       const previousUrl = editing.coverImageUrl || '';
       const key = editing.id || editing.name || 'package';
-      const downloadUrl = await uploadPackageCover(key, blob, mimeType);
+      const downloadUrl = await uploadPackageCover(key, blob, mimeType, (pct) => {
+        setUploadProgress(pct);
+      });
       setEditing((prev) => (prev ? { ...prev, coverImageUrl: downloadUrl } : prev));
+      setUnsavedUploadedCovers((prev) => [...prev.filter((u) => u !== previousUrl), downloadUrl]);
       if (previousUrl && previousUrl !== downloadUrl) {
-        await deletePackageCoverByUrl(previousUrl);
+        if (unsavedUploadedCovers.includes(previousUrl)) {
+          await deletePackageCoverByUrl(previousUrl);
+        } else {
+          setPendingDeleteCovers((prev) =>
+            prev.includes(previousUrl) ? prev : [...prev, previousUrl]
+          );
+        }
       }
     } catch (err: any) {
       setMsg(err?.message || 'Could not upload cropped cover image.');
     } finally {
       setUploadingCover(false);
+      setUploadProgress(null);
     }
   };
 
@@ -112,7 +163,14 @@ export const AdminPackagesManager: React.FC<SharedAdminProps> = ({ data, onReloa
     setEditing({ ...editing, coverImageUrl: '' });
     setLastSelectedFile(null);
     if (currentUrl) {
-      await deletePackageCoverByUrl(currentUrl);
+      if (unsavedUploadedCovers.includes(currentUrl)) {
+        setUnsavedUploadedCovers((prev) => prev.filter((u) => u !== currentUrl));
+        await deletePackageCoverByUrl(currentUrl);
+      } else {
+        setPendingDeleteCovers((prev) =>
+          prev.includes(currentUrl) ? prev : [...prev, currentUrl]
+        );
+      }
     }
   };
 
@@ -137,11 +195,27 @@ export const AdminPackagesManager: React.FC<SharedAdminProps> = ({ data, onReloa
       courseIds: selectedCourseIds,
     };
     try {
-      if (editing.id) {
-        await api.updatePackage(editing.id, payload);
-      } else {
-        await api.createPackage(payload);
+      const savedRes = editing.id
+        ? await api.updatePackage(editing.id, payload)
+        : await api.createPackage(payload);
+
+      const mappedPackageCourses = selectedCourseIds.map((courseId, idx) => ({
+        id: `pc-${savedRes.package.id}-${courseId}`,
+        packageId: savedRes.package.id,
+        courseId,
+        sortOrder: idx + 1,
+      }));
+      await syncPackageToFirestore(savedRes.package, mappedPackageCourses);
+
+      const toDelete = pendingDeleteCovers.filter(
+        (url) => url && url !== savedRes.package.coverImageUrl
+      );
+      if (toDelete.length > 0) {
+        await Promise.allSettled(toDelete.map((url) => deletePackageCoverByUrl(url)));
       }
+
+      setPendingDeleteCovers([]);
+      setUnsavedUploadedCovers([]);
       setEditing(null);
       await onReload();
     } catch (err: any) {
@@ -155,7 +229,8 @@ export const AdminPackagesManager: React.FC<SharedAdminProps> = ({ data, onReloa
     setBusy(true);
     setMsg(null);
     try {
-      await api.updatePackage(pkg.id, patch);
+      const res = await api.updatePackage(pkg.id, patch);
+      await syncPackageToFirestore(res.package);
       await onReload();
     } catch (err: any) {
       setMsg(err?.message || 'Failed to update package');
@@ -173,7 +248,8 @@ export const AdminPackagesManager: React.FC<SharedAdminProps> = ({ data, onReloa
     setBusy(true);
     setMsg(null);
     try {
-      await api.reorderPackages(nextOrder.map((p) => p.id));
+      const res = await api.reorderPackages(nextOrder.map((p) => p.id));
+      await Promise.allSettled(res.packages.map((p) => syncPackageToFirestore(p)));
       await onReload();
     } catch (err: any) {
       setMsg(err?.message || 'Failed to update package display order');
@@ -190,6 +266,7 @@ export const AdminPackagesManager: React.FC<SharedAdminProps> = ({ data, onReloa
         await deletePackageCoverByUrl(pkg.coverImageUrl);
       }
       await api.deletePackage(pkg.id);
+      await deletePackageFromFirestore(pkg.id);
       await onReload();
     } catch (err: any) {
       setMsg(err?.message || 'Failed to delete package');
@@ -228,7 +305,7 @@ export const AdminPackagesManager: React.FC<SharedAdminProps> = ({ data, onReloa
       <input
         ref={fileInputRef}
         type="file"
-        accept="image/jpeg,image/png,image/webp"
+        accept="image/jpeg,image/png,image/webp,image/*"
         onChange={handleFileChosen}
         className="hidden"
       />
@@ -248,7 +325,7 @@ export const AdminPackagesManager: React.FC<SharedAdminProps> = ({ data, onReloa
             </div>
             <button
               type="button"
-              onClick={() => setEditing(null)}
+              onClick={closeEditor}
               className="text-xs font-medium text-slate-500 hover:text-[#0B1E36] cursor-pointer"
             >
               Close
@@ -302,17 +379,24 @@ export const AdminPackagesManager: React.FC<SharedAdminProps> = ({ data, onReloa
             </div>
 
             {uploadingCover ? (
-              <div className="aspect-[16/10] max-w-sm rounded-lg border border-slate-200 bg-white flex flex-col items-center justify-center gap-2 text-xs text-slate-600">
+              <div className="aspect-[16/10] max-w-sm rounded-lg border border-slate-200 bg-white px-6 flex flex-col items-center justify-center gap-2.5 text-xs text-slate-600">
                 <div className="w-5 h-5 rounded-full border-2 border-[#0D9488] border-t-transparent animate-spin" />
-                <span>Uploading cropped cover to Firebase Storage...</span>
+                <span className="font-medium text-[#0B1E36]">
+                  Uploading cover to Firebase Storage{uploadProgress !== null ? ` (${uploadProgress}%)` : '...'}
+                </span>
+                <div className="w-full max-w-[220px] h-1.5 rounded-full bg-slate-100 overflow-hidden">
+                  <div
+                    className="h-full bg-[#0D9488] transition-all duration-200"
+                    style={{ width: `${uploadProgress ?? 10}%` }}
+                  />
+                </div>
               </div>
             ) : editing.coverImageUrl ? (
-              <div className="max-w-sm rounded-lg overflow-hidden border border-slate-200 bg-white">
-                <img
+              <div className="max-w-sm rounded-lg overflow-hidden border border-slate-200 bg-white aspect-[16/10]">
+                <PackageCoverImage
                   src={editing.coverImageUrl}
                   alt={editing.name || 'Package cover preview'}
-                  referrerPolicy="no-referrer"
-                  className="w-full aspect-[16/10] object-cover block"
+                  fallbackMode="empty"
                 />
               </div>
             ) : (
@@ -323,7 +407,7 @@ export const AdminPackagesManager: React.FC<SharedAdminProps> = ({ data, onReloa
               >
                 <ImageIcon className="w-6 h-6 text-slate-400" />
                 <span className="font-medium text-[#0B1E36]">Select Cover From Gallery / Computer</span>
-                <span className="text-[11px] text-slate-400">JPG, PNG, or WebP</span>
+                <span className="text-[11px] text-slate-400">JPG, PNG, or WebP (max 5 MB)</span>
               </button>
             )}
           </div>
@@ -483,7 +567,7 @@ export const AdminPackagesManager: React.FC<SharedAdminProps> = ({ data, onReloa
             </button>
             <button
               type="button"
-              onClick={() => setEditing(null)}
+              onClick={closeEditor}
               className="px-4 py-2.5 rounded-lg border border-slate-300 text-xs font-semibold cursor-pointer"
             >
               Cancel
@@ -509,19 +593,11 @@ export const AdminPackagesManager: React.FC<SharedAdminProps> = ({ data, onReloa
               >
                 <div>
                   <div className="aspect-[16/10] w-full bg-slate-100 border-b border-slate-200 overflow-hidden">
-                    {pkg.coverImageUrl ? (
-                      <img
-                        src={pkg.coverImageUrl}
-                        alt={pkg.name}
-                        referrerPolicy="no-referrer"
-                        className="w-full h-full object-cover block"
-                      />
-                    ) : (
-                      <div className="w-full h-full flex flex-col items-center justify-center text-slate-400 text-xs gap-1">
-                        <ImageIcon className="w-6 h-6" />
-                        <span>No Cover Uploaded</span>
-                      </div>
-                    )}
+                    <PackageCoverImage
+                      src={pkg.coverImageUrl}
+                      alt={pkg.name}
+                      fallbackMode="empty"
+                    />
                   </div>
 
                   <div className="p-5 space-y-2.5">

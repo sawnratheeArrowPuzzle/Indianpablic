@@ -178,18 +178,12 @@ export const api = {
 
   getMemberOverview: () => requestJson<MemberOverviewResponse>('/api/me/overview', {}, true),
 
-  uploadAvatarFallback: (dataUrl: string) =>
-    requestJson<{ url: string }>(
-      '/api/me/avatar',
-      { method: 'POST', body: JSON.stringify({ dataUrl }) },
-      true
-    ),
-
   updateProfile: (payload: {
     displayName: string;
     phone: string;
     upiId: string;
     photoURL?: string;
+    photoRemoved?: boolean;
   }) =>
     requestJson<{ user: UserProfile }>(
       '/api/me/profile',

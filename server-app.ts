@@ -100,11 +100,7 @@ function resolveDbPaths(): { dataDir: string; dbFile: string } {
   return { dataDir: tmpDir, dbFile: tmpFile };
 }
 
-const { dataDir: DATA_DIR, dbFile: DB_FILE } = resolveDbPaths();
-const AVATARS_DIR = path.join(DATA_DIR, 'avatars');
-if (!fs.existsSync(AVATARS_DIR)) {
-  fs.mkdirSync(AVATARS_DIR, { recursive: true });
-}
+const { dbFile: DB_FILE } = resolveDbPaths();
 
 interface SavvvnDatabase {
   users: UserProfile[];
@@ -848,23 +844,6 @@ app.get('/api/public/catalog', (_req, res) => {
   res.json(response);
 });
 
-app.get('/api/public/avatars/:filename', (req, res) => {
-  const safeName = path.basename(String(req.params.filename || '')).replace(/[^a-zA-Z0-9._-]/g, '');
-  if (!safeName || !/\.(jpg|jpeg|png|webp)$/i.test(safeName)) {
-    return res.status(400).json({ error: 'Invalid avatar filename' });
-  }
-  const filePath = path.join(AVATARS_DIR, safeName);
-  if (!fs.existsSync(filePath)) {
-    return res.status(404).json({ error: 'Avatar not found' });
-  }
-  const ext = path.extname(safeName).toLowerCase();
-  const mime =
-    ext === '.png' ? 'image/png' : ext === '.webp' ? 'image/webp' : 'image/jpeg';
-  res.setHeader('Content-Type', mime);
-  res.setHeader('Cache-Control', 'public, max-age=31536000');
-  return res.sendFile(filePath);
-});
-
 app.post('/api/public/contact', async (req, res) => {
   try {
     const { name, email, subject, message } = req.body || {};
@@ -1102,36 +1081,10 @@ app.get('/api/me/overview', requireMember, (req: AuthedRequest, res) => {
   res.json(overview);
 });
 
-app.post('/api/me/avatar', requireMember, async (req: AuthedRequest, res) => {
-  try {
-    const uid = req.currentUser!.uid;
-    const { dataUrl } = req.body || {};
-    if (typeof dataUrl !== 'string') {
-      return res.status(400).json({ error: 'Image payload is required.' });
-    }
-    const match = dataUrl.match(/^data:(image\/(?:jpeg|png|webp));base64,([A-Za-z0-9+/=]+)$/);
-    if (!match) {
-      return res.status(400).json({ error: 'Unsupported image format. Use JPG, PNG, or WebP.' });
-    }
-    const mime = match[1];
-    const buffer = Buffer.from(match[2], 'base64');
-    if (buffer.length > 4 * 1024 * 1024) {
-      return res.status(400).json({ error: 'Profile picture exceeds 4 MB limit.' });
-    }
-    const ext = mime === 'image/png' ? 'png' : mime === 'image/webp' ? 'webp' : 'jpg';
-    const safeUid = uid.replace(/[^a-zA-Z0-9_-]/g, '') || 'user';
-    const filename = `${safeUid}-${Date.now()}.${ext}`;
-    fs.writeFileSync(path.join(AVATARS_DIR, filename), buffer);
-    return res.json({ url: `/api/public/avatars/${filename}` });
-  } catch (err: any) {
-    return res.status(500).json({ error: err?.message || 'Failed to store profile picture' });
-  }
-});
-
 app.patch('/api/me/profile', requireMember, async (req: AuthedRequest, res) => {
   try {
     const uid = req.currentUser!.uid;
-    const { displayName, phone, upiId, photoURL } = req.body || {};
+    const { displayName, phone, upiId, photoURL, photoRemoved } = req.body || {};
 
     const updated = await withDbLock((db) => {
       const user = db.users.find((u) => u.uid === uid);
@@ -1151,18 +1104,20 @@ app.patch('/api/me/profile', requireMember, async (req: AuthedRequest, res) => {
         user.upiId = cleanUpi;
       }
       if (typeof photoURL === 'string') {
-        const cleanPhoto = photoURL.trim().slice(0, 1000);
+        const cleanPhoto = photoURL.trim().slice(0, 2000);
         if (cleanPhoto === '') {
           user.photoURL = '';
           user.photoRemoved = true;
-        } else if (
-          cleanPhoto.startsWith('https://') ||
-          cleanPhoto.startsWith('/api/public/avatars/')
-        ) {
+        } else if (cleanPhoto.startsWith('https://')) {
           user.photoURL = cleanPhoto;
-          user.photoRemoved = false;
+          user.photoRemoved = Boolean(photoRemoved);
         } else {
-          throw new Error('Invalid profile picture URL.');
+          throw new Error('Profile picture URL must be a valid https:// Firebase Storage URL.');
+        }
+      } else if (typeof photoRemoved === 'boolean') {
+        user.photoRemoved = photoRemoved;
+        if (photoRemoved) {
+          user.photoURL = '';
         }
       }
       user.updatedAt = nowIso();

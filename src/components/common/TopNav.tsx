@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { Menu, User, X } from 'lucide-react';
 import { BrandLogo } from './BrandLogo';
+import { UserAvatar } from './UserAvatar';
 import { AUTHORIZED_ADMIN_EMAIL } from '../../lib/firebase';
 import type { UserProfile } from '../../types/savvvn';
 
@@ -108,11 +109,11 @@ export const TopNav: React.FC<TopNavProps> = ({
             {!user && authBusy ? (
               <span className="w-3.5 h-3.5 rounded-full border-2 border-white border-t-transparent animate-spin shrink-0" />
             ) : user?.photoURL ? (
-              <img
+              <UserAvatar
                 src={user.photoURL}
-                alt={user.displayName}
-                referrerPolicy="no-referrer"
+                name={user.displayName}
                 className="w-5 h-5 rounded-full object-cover border border-white/40 shrink-0"
+                fallbackClassName="w-5 h-5 rounded-full bg-white/20 text-white text-[10px] font-bold flex items-center justify-center shrink-0"
               />
             ) : (
               <User className="w-4 h-4 shrink-0" />

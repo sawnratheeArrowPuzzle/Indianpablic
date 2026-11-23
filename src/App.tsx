@@ -5,7 +5,7 @@ import {
   AUTHORIZED_ADMIN_EMAIL,
   auth,
   googleProvider,
-  syncUserProfileToFirestore,
+  loadOrSyncUserProfileWithFirestore,
 } from './lib/firebase';
 import { api } from './services/api';
 import type { Package, PublicCatalogResponse, UserProfile } from './types/savvvn';
@@ -134,8 +134,18 @@ export function App() {
             savedRef || referralCodeRef.current,
             fbUser
           );
-          setUser(profile);
-          void syncUserProfileToFirestore(profile);
+          const { profile: mergedProfile, syncedFromFirestore } =
+            await loadOrSyncUserProfileWithFirestore(profile);
+          setUser(mergedProfile);
+          if (syncedFromFirestore) {
+            void api.updateProfile({
+              displayName: mergedProfile.displayName,
+              phone: mergedProfile.phone || '',
+              upiId: mergedProfile.upiId || '',
+              photoURL: mergedProfile.photoURL || '',
+              photoRemoved: Boolean(mergedProfile.photoRemoved),
+            });
+          }
         } catch (err: any) {
           console.error('Session sync failed:', err);
           setAuthNotice(err?.message || 'Could not verify your account session.');
@@ -188,10 +198,20 @@ export function App() {
           savedRef || referralCodeRef.current,
           credential.user
         );
-        setUser(profile);
-        void syncUserProfileToFirestore(profile);
+        const { profile: mergedProfile, syncedFromFirestore } =
+          await loadOrSyncUserProfileWithFirestore(profile);
+        setUser(mergedProfile);
+        if (syncedFromFirestore) {
+          void api.updateProfile({
+            displayName: mergedProfile.displayName,
+            phone: mergedProfile.phone || '',
+            upiId: mergedProfile.upiId || '',
+            photoURL: mergedProfile.photoURL || '',
+            photoRemoved: Boolean(mergedProfile.photoRemoved),
+          });
+        }
 
-        const adminAuthorized = isAuthorizedAdmin(profile);
+        const adminAuthorized = isAuthorizedAdmin(mergedProfile);
 
         if (adminAuthorized && destinationOnSuccess !== 'checkout') {
           navigate('admin');

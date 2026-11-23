@@ -20,6 +20,7 @@ import {
 } from 'lucide-react';
 import type { Course, Package, PublicCatalogResponse } from '../../types/savvvn';
 import type { PublicRoute } from '../common/TopNav';
+import { PackageCoverImage } from '../common/PackageCoverImage';
 
 interface HomePageProps {
   catalog: PublicCatalogResponse;
@@ -335,20 +336,7 @@ export const HomePage: React.FC<HomePageProps> = ({
               >
                 {/* Admin-Uploaded Cover Image */}
                 <div className="sm:col-span-5 aspect-[16/10] w-full rounded-xl overflow-hidden bg-slate-100">
-                  {pkg.coverImageUrl ? (
-                    <img
-                      src={pkg.coverImageUrl}
-                      alt={pkg.name}
-                      referrerPolicy="no-referrer"
-                      className="w-full h-full object-cover block"
-                    />
-                  ) : (
-                    <div className="w-full h-full bg-gradient-to-br from-[#0B1530] via-[#1E293B] to-[#4F1CEB] flex items-center justify-center p-4 text-center">
-                      <span className="font-display text-base font-bold text-white">
-                        {pkg.name}
-                      </span>
-                    </div>
-                  )}
+                  <PackageCoverImage src={pkg.coverImageUrl} alt={pkg.name} />
                 </div>
 
                 {/* Package Name + Price + Enroll Now */}

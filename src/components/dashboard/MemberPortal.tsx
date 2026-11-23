@@ -29,10 +29,12 @@ import { api } from '../../services/api';
 import {
   AUTHORIZED_ADMIN_EMAIL,
   deleteProfilePictureByUrl,
-  syncUserProfileToFirestore,
+  loadOrSyncUserProfileWithFirestore,
+  saveUserProfileToFirestore,
   uploadProfilePicture,
 } from '../../lib/firebase';
 import { BrandLogo } from '../common/BrandLogo';
+import { UserAvatar } from '../common/UserAvatar';
 import type {
   Course,
   MemberOverviewResponse,
@@ -40,6 +42,22 @@ import type {
   PublicCatalogResponse,
   UserProfile,
 } from '../../types/savvvn';
+
+function isAcceptedProfileImage(file: File): boolean {
+  const mime = (file.type || '').toLowerCase().trim();
+  if (
+    mime === 'image/jpeg' ||
+    mime === 'image/jpg' ||
+    mime === 'image/png' ||
+    mime === 'image/webp'
+  ) {
+    return true;
+  }
+  if (!mime || mime === 'application/octet-stream') {
+    return /\.(jpe?g|png|webp)$/i.test(file.name || '');
+  }
+  return false;
+}
 
 function prepareProfileAvatarImage(
   file: File
@@ -64,15 +82,45 @@ function prepareProfileAvatarImage(
           return;
         }
         ctx.drawImage(img, 0, 0, width, height);
-        const mimeType = file.type === 'image/png' ? 'image/png' : 'image/jpeg';
-        const dataUrl = canvas.toDataURL(mimeType, 0.86);
+
+        const lowerType = (file.type || '').toLowerCase().trim();
+        const lowerName = (file.name || '').toLowerCase();
+        const mimeType =
+          lowerType === 'image/png' || (!lowerType && lowerName.endsWith('.png'))
+            ? 'image/png'
+            : lowerType === 'image/webp' || (!lowerType && lowerName.endsWith('.webp'))
+            ? 'image/webp'
+            : 'image/jpeg';
+
         canvas.toBlob(
           (blob) => {
             if (!blob) {
-              reject(new Error('Could not prepare image for upload'));
+              canvas.toBlob(
+                (fallbackBlob) => {
+                  if (!fallbackBlob) {
+                    reject(new Error('Could not prepare image for upload'));
+                    return;
+                  }
+                  resolve({
+                    blob: fallbackBlob,
+                    mimeType: 'image/jpeg',
+                    dataUrl: canvas.toDataURL('image/jpeg', 0.86),
+                  });
+                },
+                'image/jpeg',
+                0.86
+              );
               return;
             }
-            resolve({ blob, mimeType, dataUrl });
+            const actualMime =
+              blob.type === 'image/png' || blob.type === 'image/webp' || blob.type === 'image/jpeg'
+                ? blob.type
+                : mimeType;
+            resolve({
+              blob,
+              mimeType: actualMime,
+              dataUrl: canvas.toDataURL(actualMime, 0.86),
+            });
           },
           mimeType,
           0.86
@@ -195,6 +243,8 @@ export const MemberPortal: React.FC<MemberPortalProps> = ({
   const [stagedAvatarMime, setStagedAvatarMime] = useState<string>('image/jpeg');
   const [stagedAvatarPreview, setStagedAvatarPreview] = useState<string>('');
   const [stagedAvatarRemove, setStagedAvatarRemove] = useState(false);
+  const [avatarUploadProgress, setAvatarUploadProgress] = useState<number | null>(null);
+  const [savedPhotoLoadError, setSavedPhotoLoadError] = useState(false);
   const [profBusy, setProfBusy] = useState(false);
   const [profMsg, setProfMsg] = useState<{ type: 'ok' | 'err'; text: string } | null>(null);
 
@@ -209,12 +259,14 @@ export const MemberPortal: React.FC<MemberPortalProps> = ({
     setError(null);
     try {
       const data = await api.getMemberOverview();
-      setOverview(data);
-      onRefreshUser(data.user);
-      setProfName(data.user.displayName);
-      setProfPhone(data.user.phone || '');
-      setProfUpi(data.user.upiId || '');
-      if (data.user.upiId && !wdUpi) setWdUpi(data.user.upiId);
+      const { profile: mergedUser } = await loadOrSyncUserProfileWithFirestore(data.user);
+      const mergedOverview: MemberOverviewResponse = { ...data, user: mergedUser };
+      setOverview(mergedOverview);
+      onRefreshUser(mergedUser);
+      setProfName(mergedUser.displayName);
+      setProfPhone(mergedUser.phone || '');
+      setProfUpi(mergedUser.upiId || '');
+      if (mergedUser.upiId && !wdUpi) setWdUpi(mergedUser.upiId);
     } catch (err: any) {
       setError(err?.message || 'Could not load dashboard data');
     } finally {
@@ -225,6 +277,10 @@ export const MemberPortal: React.FC<MemberPortalProps> = ({
   useEffect(() => {
     loadOverview();
   }, []);
+
+  useEffect(() => {
+    setSavedPhotoLoadError(false);
+  }, [overview?.user.photoURL, user.photoURL]);
 
   const copyText = (key: string, text: string) => {
     navigator.clipboard.writeText(text);
@@ -286,7 +342,7 @@ export const MemberPortal: React.FC<MemberPortalProps> = ({
     e.target.value = '';
     if (!file) return;
     setProfMsg(null);
-    if (!file.type.startsWith('image/')) {
+    if (!isAcceptedProfileImage(file)) {
       setProfMsg({ type: 'err', text: 'Please select a valid JPG, PNG, or WebP image.' });
       return;
     }
@@ -300,6 +356,7 @@ export const MemberPortal: React.FC<MemberPortalProps> = ({
       setStagedAvatarMime(prepared.mimeType);
       setStagedAvatarPreview(prepared.dataUrl);
       setStagedAvatarRemove(false);
+      setSavedPhotoLoadError(false);
     } catch (err: any) {
       setProfMsg({ type: 'err', text: err?.message || 'Could not process image.' });
     }
@@ -308,19 +365,25 @@ export const MemberPortal: React.FC<MemberPortalProps> = ({
   const handleSaveProfile = async (e: React.FormEvent) => {
     e.preventDefault();
     setProfBusy(true);
+    setAvatarUploadProgress(null);
     setProfMsg(null);
     const previousPhotoUrl = overview?.user.photoURL || user.photoURL || '';
     try {
       let nextPhotoUrl: string | undefined = undefined;
+      let nextPhotoRemoved: boolean | undefined = undefined;
+
       if (stagedAvatarRemove) {
         nextPhotoUrl = '';
+        nextPhotoRemoved = true;
       } else if (stagedAvatarBlob) {
-        try {
-          nextPhotoUrl = await uploadProfilePicture(user.uid, stagedAvatarBlob, stagedAvatarMime);
-        } catch {
-          const uploaded = await api.uploadAvatarFallback(stagedAvatarPreview);
-          nextPhotoUrl = uploaded.url;
-        }
+        setAvatarUploadProgress(0);
+        nextPhotoUrl = await uploadProfilePicture(
+          user.uid,
+          stagedAvatarBlob,
+          stagedAvatarMime,
+          (pct) => setAvatarUploadProgress(pct)
+        );
+        nextPhotoRemoved = false;
       }
 
       const res = await api.updateProfile({
@@ -328,8 +391,17 @@ export const MemberPortal: React.FC<MemberPortalProps> = ({
         phone: profPhone.trim(),
         upiId: profUpi.trim(),
         ...(nextPhotoUrl !== undefined ? { photoURL: nextPhotoUrl } : {}),
+        ...(nextPhotoRemoved !== undefined ? { photoRemoved: nextPhotoRemoved } : {}),
       });
-      await syncUserProfileToFirestore(res.user);
+
+      const mergedSavedUser: UserProfile = {
+        ...res.user,
+        ...(nextPhotoUrl !== undefined ? { photoURL: nextPhotoUrl } : {}),
+        ...(nextPhotoRemoved !== undefined ? { photoRemoved: nextPhotoRemoved } : {}),
+      };
+
+      await saveUserProfileToFirestore(mergedSavedUser);
+
       if (
         previousPhotoUrl &&
         (stagedAvatarRemove || (nextPhotoUrl && nextPhotoUrl !== previousPhotoUrl))
@@ -340,13 +412,15 @@ export const MemberPortal: React.FC<MemberPortalProps> = ({
       setStagedAvatarBlob(null);
       setStagedAvatarPreview('');
       setStagedAvatarRemove(false);
-      onRefreshUser(res.user);
+      setSavedPhotoLoadError(false);
+      onRefreshUser(mergedSavedUser);
       setProfMsg({ type: 'ok', text: 'Profile and photo updated.' });
       await loadOverview();
     } catch (err: any) {
       setProfMsg({ type: 'err', text: err?.message || 'Profile update failed' });
     } finally {
       setProfBusy(false);
+      setAvatarUploadProgress(null);
     }
   };
 
@@ -575,18 +649,12 @@ export const MemberPortal: React.FC<MemberPortalProps> = ({
               onClick={() => selectTab('profile')}
               className="flex items-center gap-2 text-left cursor-pointer"
             >
-              {activePhotoUrl ? (
-                <img
-                  src={activePhotoUrl}
-                  alt={activeUser.displayName}
-                  referrerPolicy="no-referrer"
-                  className="w-8 h-8 rounded-full object-cover border border-slate-200"
-                />
-              ) : (
-                <div className="w-8 h-8 rounded-full bg-[#0B1E36] text-white text-xs font-bold flex items-center justify-center">
-                  {activeUser.displayName.slice(0, 1).toUpperCase()}
-                </div>
-              )}
+              <UserAvatar
+                src={activePhotoUrl}
+                name={activeUser.displayName}
+                className="w-8 h-8 rounded-full object-cover border border-slate-200 shrink-0"
+                fallbackClassName="w-8 h-8 rounded-full bg-[#0B1E36] text-white text-xs font-bold flex items-center justify-center shrink-0"
+              />
               <span className="hidden sm:inline text-sm font-medium text-[#0B1E36] truncate max-w-[140px]">
                 {activeUser.displayName}
               </span>
@@ -618,18 +686,12 @@ export const MemberPortal: React.FC<MemberPortalProps> = ({
                   {/* Welcome Strip */}
                   <div className="bg-white border border-slate-200 rounded-xl p-6 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                     <div className="flex items-center gap-4">
-                      {activePhotoUrl ? (
-                        <img
-                          src={activePhotoUrl}
-                          alt={overview.user.displayName}
-                          referrerPolicy="no-referrer"
-                          className="w-12 h-12 rounded-full object-cover border border-slate-200 shrink-0"
-                        />
-                      ) : (
-                        <div className="w-12 h-12 rounded-full bg-[#0B1E36] text-white text-base font-bold flex items-center justify-center shrink-0">
-                          {overview.user.displayName.slice(0, 1).toUpperCase()}
-                        </div>
-                      )}
+                      <UserAvatar
+                        src={activePhotoUrl}
+                        name={overview.user.displayName}
+                        className="w-12 h-12 rounded-full object-cover border border-slate-200 shrink-0"
+                        fallbackClassName="w-12 h-12 rounded-full bg-[#0B1E36] text-white text-base font-bold flex items-center justify-center shrink-0"
+                      />
                       <div>
                         <div className="text-xs text-slate-500">
                           {overview.user.referralCode} · {ownedPackageNames || 'No active package yet'}
@@ -1134,18 +1196,12 @@ export const MemberPortal: React.FC<MemberPortalProps> = ({
                             <span className="font-mono-num text-sm font-bold w-6 text-slate-500">
                               #{idx + 1}
                             </span>
-                            {entry.photoURL ? (
-                              <img
-                                src={entry.photoURL}
-                                alt={entry.displayName}
-                                referrerPolicy="no-referrer"
-                                className="w-9 h-9 rounded-full object-cover border border-slate-200 shrink-0"
-                              />
-                            ) : (
-                              <div className="w-9 h-9 rounded-full bg-slate-100 text-[#0B1E36] text-xs font-bold flex items-center justify-center shrink-0">
-                                {entry.displayName.slice(0, 1).toUpperCase()}
-                              </div>
-                            )}
+                            <UserAvatar
+                              src={entry.photoURL}
+                              name={entry.displayName}
+                              className="w-9 h-9 rounded-full object-cover border border-slate-200 shrink-0"
+                              fallbackClassName="w-9 h-9 rounded-full bg-slate-100 text-[#0B1E36] text-xs font-bold flex items-center justify-center shrink-0"
+                            />
                             <div>
                               <div className="font-semibold text-sm text-[#0B1E36]">
                                 {entry.displayName}
@@ -1570,18 +1626,17 @@ export const MemberPortal: React.FC<MemberPortalProps> = ({
                     return (
                       <div className="flex flex-col sm:flex-row sm:items-center gap-4 p-4 rounded-xl bg-slate-50 border border-slate-200">
                         <div className="relative shrink-0 w-20 h-20">
-                          {previewSrc ? (
-                            <img
-                              src={previewSrc}
-                              alt={profName || activeUser.displayName}
-                              referrerPolicy="no-referrer"
-                              className="w-20 h-20 rounded-full object-cover border-2 border-white shadow-xs"
-                            />
-                          ) : (
-                            <div className="w-20 h-20 rounded-full bg-[#0B1E36] text-white text-2xl font-bold flex items-center justify-center border-2 border-white shadow-xs">
-                              {(profName || activeUser.displayName).slice(0, 1).toUpperCase()}
-                            </div>
-                          )}
+                          <UserAvatar
+                            src={previewSrc}
+                            name={profName || activeUser.displayName}
+                            className="w-20 h-20 rounded-full object-cover border-2 border-white shadow-xs"
+                            fallbackClassName="w-20 h-20 rounded-full bg-[#0B1E36] text-white text-2xl font-bold flex items-center justify-center border-2 border-white shadow-xs"
+                            onImageError={() => {
+                              if (!stagedAvatarPreview && !stagedAvatarRemove && activePhotoUrl) {
+                                setSavedPhotoLoadError(true);
+                              }
+                            }}
+                          />
                         </div>
 
                         <div className="flex-1 space-y-2">
@@ -1598,7 +1653,7 @@ export const MemberPortal: React.FC<MemberPortalProps> = ({
                               <span>{previewSrc ? 'Replace Photo' : 'Upload Photo'}</span>
                               <input
                                 type="file"
-                                accept="image/jpeg,image/png,image/webp"
+                                accept="image/jpeg,image/png,image/webp,image/*"
                                 onChange={handleProfilePhotoSelect}
                                 className="sr-only"
                               />
@@ -1607,13 +1662,15 @@ export const MemberPortal: React.FC<MemberPortalProps> = ({
                             {previewSrc && (
                               <button
                                 type="button"
+                                disabled={profBusy}
                                 onClick={() => {
                                   setStagedAvatarBlob(null);
                                   setStagedAvatarPreview('');
                                   setStagedAvatarRemove(true);
+                                  setSavedPhotoLoadError(false);
                                   setProfMsg(null);
                                 }}
-                                className="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg border border-red-200 bg-white hover:bg-red-50 text-red-600 text-xs font-semibold cursor-pointer"
+                                className="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg border border-red-200 bg-white hover:bg-red-50 text-red-600 text-xs font-semibold cursor-pointer disabled:opacity-60"
                               >
                                 <Trash2 className="w-3.5 h-3.5" />
                                 <span>Remove</span>
@@ -1623,26 +1680,46 @@ export const MemberPortal: React.FC<MemberPortalProps> = ({
                             {(stagedAvatarPreview || stagedAvatarRemove) && (
                               <button
                                 type="button"
+                                disabled={profBusy}
                                 onClick={() => {
                                   setStagedAvatarBlob(null);
                                   setStagedAvatarPreview('');
                                   setStagedAvatarRemove(false);
                                 }}
-                                className="px-2.5 py-2 text-xs font-medium text-slate-600 hover:text-[#0B1E36] cursor-pointer"
+                                className="px-2.5 py-2 text-xs font-medium text-slate-600 hover:text-[#0B1E36] cursor-pointer disabled:opacity-60"
                               >
                                 Cancel
                               </button>
                             )}
                           </div>
 
-                          {stagedAvatarPreview && (
-                            <div className="text-[11px] font-medium text-[#0D9488]">
-                              Preview ready — click Save Profile to apply.
+                          {profBusy && avatarUploadProgress !== null && (
+                            <div className="space-y-1">
+                              <div className="text-[11px] font-medium text-[#0B1E36]">
+                                Uploading profile picture to Firebase Storage ({avatarUploadProgress}%)...
+                              </div>
+                              <div className="w-full max-w-[240px] h-1.5 rounded-full bg-slate-200 overflow-hidden">
+                                <div
+                                  className="h-full bg-[#0D9488] transition-all duration-200"
+                                  style={{ width: `${avatarUploadProgress}%` }}
+                                />
+                              </div>
                             </div>
                           )}
-                          {stagedAvatarRemove && (
+
+                          {!profBusy && stagedAvatarPreview && (
+                            <div className="text-[11px] font-medium text-[#0D9488]">
+                              Preview ready — click Save Profile to upload and apply.
+                            </div>
+                          )}
+                          {!profBusy && stagedAvatarRemove && (
                             <div className="text-[11px] font-medium text-amber-700">
                               Photo will be removed when you click Save Profile.
+                            </div>
+                          )}
+                          {!profBusy && !stagedAvatarPreview && !stagedAvatarRemove && savedPhotoLoadError && (
+                            <div className="text-[11px] font-medium text-red-600">
+                              Your saved profile picture URL could not be loaded. Upload a replacement photo and click Save Profile.
                             </div>
                           )}
                         </div>

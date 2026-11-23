@@ -1,6 +1,7 @@
 import React from 'react';
 import { ArrowLeft, ArrowRight, Check, Clock } from 'lucide-react';
 import type { Course, Package, PublicCatalogResponse } from '../../types/savvvn';
+import { PackageCoverImage } from '../common/PackageCoverImage';
 
 interface PackagesPageProps {
   catalog: PublicCatalogResponse;
@@ -48,20 +49,7 @@ export const PackagesPage: React.FC<PackagesPageProps> = ({
               }`}
             >
               <div className="sm:col-span-5 aspect-[16/10] w-full rounded-xl overflow-hidden bg-slate-100">
-                {pkg.coverImageUrl ? (
-                  <img
-                    src={pkg.coverImageUrl}
-                    alt={pkg.name}
-                    referrerPolicy="no-referrer"
-                    className="w-full h-full object-cover block"
-                  />
-                ) : (
-                  <div className="w-full h-full bg-gradient-to-br from-[#0B1530] via-[#1E293B] to-[#4F1CEB] flex items-center justify-center p-4 text-center">
-                    <span className="font-display text-base font-bold text-white">
-                      {pkg.name}
-                    </span>
-                  </div>
-                )}
+                <PackageCoverImage src={pkg.coverImageUrl} alt={pkg.name} />
               </div>
 
               <div className="sm:col-span-7 flex flex-col justify-center space-y-2.5">
@@ -123,12 +111,7 @@ export const PackageDetailPage: React.FC<PackageDetailPageProps> = ({
           <div className="bg-white border border-slate-200 rounded-xl overflow-hidden">
             {pkg.coverImageUrl && (
               <div className="aspect-[16/10] w-full border-b border-slate-200 bg-slate-100">
-                <img
-                  src={pkg.coverImageUrl}
-                  alt={pkg.name}
-                  referrerPolicy="no-referrer"
-                  className="w-full h-full object-cover block"
-                />
+                <PackageCoverImage src={pkg.coverImageUrl} alt={pkg.name} />
               </div>
             )}
             <div className="p-6 sm:p-8 space-y-4">
