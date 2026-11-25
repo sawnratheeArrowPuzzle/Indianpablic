@@ -84,9 +84,12 @@ function createFirebaseSingletons(): FirebaseSingletons {
     firebaseAuth = getAuth(firebaseApp);
   }
 
-  const bucketUrl = firebaseConfig.storageBucket
-    ? `gs://${firebaseConfig.storageBucket}`
-    : undefined;
+  const rawConfiguredBucket =
+    (import.meta.env.VITE_FIREBASE_STORAGE_BUCKET || firebaseConfig.storageBucket || '')
+      .trim()
+      .replace(/^gs:\/\//i, '')
+      .replace(/\/+$/, '');
+  const bucketUrl = rawConfiguredBucket ? `gs://${rawConfiguredBucket}` : undefined;
   const firebaseStorage = bucketUrl
     ? getStorage(firebaseApp, bucketUrl)
     : getStorage(firebaseApp);
@@ -111,12 +114,47 @@ function createFirebaseSingletons(): FirebaseSingletons {
 const singletons = createFirebaseSingletons();
 
 export const AUTHORIZED_ADMIN_EMAIL = 'sawn6849@gmail.com';
-export const STORAGE_BUCKET = firebaseConfig.storageBucket || '';
+export const STORAGE_BUCKET = (
+  import.meta.env.VITE_FIREBASE_STORAGE_BUCKET ||
+  firebaseConfig.storageBucket ||
+  ''
+)
+  .trim()
+  .replace(/^gs:\/\//i, '')
+  .replace(/\/+$/, '');
 export const app = singletons.app;
 export const db = singletons.db;
 export const auth = singletons.auth;
 export const storage = singletons.storage;
 export const googleProvider = singletons.googleProvider;
+
+let verifiedStorageBucket: string | null = null;
+
+function getCandidateStorageBuckets(): string[] {
+  const candidates = [
+    STORAGE_BUCKET,
+    `${firebaseConfig.projectId}.firebasestorage.app`,
+    `${firebaseConfig.projectId}.appspot.com`,
+  ]
+    .map((b) => (b || '').trim())
+    .filter(Boolean);
+  return Array.from(new Set(candidates));
+}
+
+function getStorageForBucket(bucketName: string): FirebaseStorage {
+  if (!bucketName || bucketName === STORAGE_BUCKET) {
+    return storage;
+  }
+  const customStorage = getStorage(app, `gs://${bucketName}`);
+  customStorage.maxUploadRetryTime = 15000;
+  customStorage.maxOperationRetryTime = 15000;
+  return customStorage;
+}
+
+function extractBucketFromDownloadUrl(url: string): string | null {
+  const match = url.match(/firebasestorage\.googleapis\.com\/v0\/b\/([^/]+)\/o\//i);
+  return match?.[1] ? decodeURIComponent(match[1]) : null;
+}
 
 function normalizeImageMime(mimeType: string): 'image/jpeg' | 'image/png' | 'image/webp' {
   const lower = (mimeType || '').toLowerCase().trim();
@@ -126,43 +164,78 @@ function normalizeImageMime(mimeType: string): 'image/jpeg' | 'image/png' | 'ima
   throw new Error('Unsupported image format. Please use JPG, PNG, or WebP.');
 }
 
-async function assertStorageBucketReady(): Promise<void> {
-  if (!STORAGE_BUCKET) {
-    throw new Error(
-      'Firebase Storage bucket is missing in firebase-applet-config.json. Please configure storageBucket.'
-    );
-  }
+async function probeBucketExists(bucket: string): Promise<'ready' | 'missing' | 'unknown'> {
   try {
     const res = await fetch(
-      `https://firebasestorage.googleapis.com/v0/b/${encodeURIComponent(STORAGE_BUCKET)}/o?maxResults=1`,
+      `https://firebasestorage.googleapis.com/v0/b/${encodeURIComponent(bucket)}/o?maxResults=1`,
       { method: 'GET' }
     );
     if (res.status === 404) {
-      throw new Error(
-        `Firebase Storage bucket "${STORAGE_BUCKET}" has not been created/enabled in Firebase Console yet (HTTP 404). Open Firebase Console → Storage → Get started to enable Storage for project "${firebaseConfig.projectId}", then deploy storage.rules.`
-      );
+      return 'missing';
     }
-  } catch (err: any) {
-    if (err?.message && err.message.includes('HTTP 404')) {
-      throw err;
-    }
-    // Network errors or CORS transient issues fall through to SDK resumable upload for detailed handling
+    // HTTP 200 or 403 proves the Storage bucket exists and is linked to Firebase Storage
+    return 'ready';
+  } catch {
+    return 'unknown';
   }
 }
 
-function formatStorageError(err: any, unauthorizedMessage: string): Error {
+async function resolveActiveStorage(): Promise<{ storage: FirebaseStorage; bucket: string }> {
+  if (verifiedStorageBucket) {
+    return {
+      storage: getStorageForBucket(verifiedStorageBucket),
+      bucket: verifiedStorageBucket,
+    };
+  }
+
+  const candidates = getCandidateStorageBuckets();
+  if (candidates.length === 0) {
+    throw new Error(
+      `Firebase Storage bucket is not configured for project "${firebaseConfig.projectId}".`
+    );
+  }
+
+  let sawMissing = false;
+  for (const candidate of candidates) {
+    const status = await probeBucketExists(candidate);
+    if (status === 'ready') {
+      verifiedStorageBucket = candidate;
+      return {
+        storage: getStorageForBucket(candidate),
+        bucket: candidate,
+      };
+    }
+    if (status === 'missing') {
+      sawMissing = true;
+    }
+  }
+
+  if (sawMissing) {
+    throw new Error(
+      `Firebase Storage has not been enabled yet for project "${firebaseConfig.projectId}" (checked ${candidates.join(
+        ' & '
+      )} — HTTP 404). Open Firebase Console → Project "${firebaseConfig.projectId}" → Storage → Get started to create the bucket, then publish storage.rules.`
+    );
+  }
+
+  return { storage, bucket: candidates[0] };
+}
+
+function formatStorageError(err: any, unauthorizedMessage: string, bucketName: string): Error {
   const code = String(err?.code || '');
   if (code === 'storage/unauthorized' || code === 'storage/unauthenticated') {
     return new Error(unauthorizedMessage);
   }
   if (code === 'storage/bucket-not-found' || code === 'storage/project-not-found') {
+    verifiedStorageBucket = null;
     return new Error(
-      `Firebase Storage bucket "${STORAGE_BUCKET}" was not found. Enable Firebase Storage in Firebase Console for "${firebaseConfig.projectId}".`
+      `Firebase Storage bucket "${bucketName}" was not found. Enable Firebase Storage in Firebase Console for "${firebaseConfig.projectId}".`
     );
   }
   if (code === 'storage/retry-limit-exceeded') {
+    verifiedStorageBucket = null;
     return new Error(
-      `Firebase Storage upload timed out (storage/retry-limit-exceeded). Ensure Firebase Storage is enabled for "${STORAGE_BUCKET}" in Firebase Console, storage.rules are deployed, and your internet connection is active.`
+      `Firebase Storage upload timed out (storage/retry-limit-exceeded) for bucket "${bucketName}". Ensure Storage is enabled in Firebase Console for "${firebaseConfig.projectId}", storage.rules are published, and your connection is active.`
     );
   }
   if (code === 'storage/canceled') {
@@ -175,7 +248,7 @@ function formatStorageError(err: any, unauthorizedMessage: string): Error {
 }
 
 async function uploadImageResumable(
-  objectRef: StorageReference,
+  objectPath: string,
   blob: Blob,
   mimeType: string,
   unauthorizedMessage: string,
@@ -189,7 +262,8 @@ async function uploadImageResumable(
     throw new Error('Image must be smaller than 5 MB to upload.');
   }
 
-  await assertStorageBucketReady();
+  const { storage: activeStorage, bucket } = await resolveActiveStorage();
+  const objectRef: StorageReference = ref(activeStorage, objectPath);
 
   onProgress?.(5);
   await new Promise<void>((resolve, reject) => {
@@ -210,7 +284,7 @@ async function uploadImageResumable(
         }
       },
       (err) => {
-        reject(formatStorageError(err, unauthorizedMessage));
+        reject(formatStorageError(err, unauthorizedMessage, bucket));
       },
       () => {
         onProgress?.(100);
@@ -222,7 +296,7 @@ async function uploadImageResumable(
   try {
     return await getDownloadURL(objectRef);
   } catch (err: any) {
-    throw formatStorageError(err, unauthorizedMessage);
+    throw formatStorageError(err, unauthorizedMessage, bucket);
   }
 }
 
@@ -239,10 +313,10 @@ export async function uploadProfilePicture(
   const safeUid = uid.replace(/[^a-zA-Z0-9_-]/g, '') || 'user';
   const ext =
     normalizedMime === 'image/png' ? 'png' : normalizedMime === 'image/webp' ? 'webp' : 'jpg';
-  const objectRef = ref(storage, `profile-pictures/${safeUid}/avatar-${Date.now()}.${ext}`);
+  const objectPath = `profile-pictures/${safeUid}/avatar-${Date.now()}.${ext}`;
 
   return await uploadImageResumable(
-    objectRef,
+    objectPath,
     blob,
     normalizedMime,
     'Firebase Storage denied profile picture upload. Ensure you are signed in and storage.rules allows writes to profile-pictures/{uid}/.',
@@ -255,7 +329,9 @@ export async function deleteProfilePictureByUrl(url: string): Promise<void> {
     return;
   }
   try {
-    const fileRef = ref(storage, url);
+    const urlBucket = extractBucketFromDownloadUrl(url);
+    const activeStorage = urlBucket ? getStorageForBucket(urlBucket) : storage;
+    const fileRef = ref(activeStorage, url);
     await deleteObject(fileRef);
   } catch {
     // Non-fatal if already removed or external URL
@@ -387,10 +463,10 @@ export async function uploadPackageCover(
   const safeKey = packageKey.replace(/[^a-zA-Z0-9_-]/g, '') || 'pkg';
   const ext =
     normalizedMime === 'image/png' ? 'png' : normalizedMime === 'image/webp' ? 'webp' : 'jpg';
-  const objectRef = ref(storage, `package-covers/${safeKey}-${Date.now()}.${ext}`);
+  const objectPath = `package-covers/${safeKey}-${Date.now()}.${ext}`;
 
   return await uploadImageResumable(
-    objectRef,
+    objectPath,
     blob,
     normalizedMime,
     'Firebase Storage denied package cover upload. Ensure storage.rules are deployed and allow writes by sawn6849@gmail.com on package-covers/.',
@@ -403,7 +479,9 @@ export async function deletePackageCoverByUrl(url: string): Promise<void> {
     return;
   }
   try {
-    const fileRef = ref(storage, url);
+    const urlBucket = extractBucketFromDownloadUrl(url);
+    const activeStorage = urlBucket ? getStorageForBucket(urlBucket) : storage;
+    const fileRef = ref(activeStorage, url);
     await deleteObject(fileRef);
   } catch {
     // Non-fatal if already removed or external URL

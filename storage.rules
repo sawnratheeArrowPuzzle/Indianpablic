@@ -1,31 +1,32 @@
 rules_version = '2';
 service firebase.storage {
   match /b/{bucket}/o {
-    match /package-covers/{fileName} {
-      allow read: if true;
-      allow create, update: if request.auth != null
+    function isAuthorizedAdmin() {
+      return request.auth != null
         && request.auth.token.email_verified == true
-        && request.auth.token.email.lower() == 'sawn6849@gmail.com'
-        && request.resource != null
-        && request.resource.size < 5 * 1024 * 1024
-        && request.resource.contentType.matches('image/(jpeg|png|webp)');
-      allow delete: if request.auth != null
-        && request.auth.token.email_verified == true
+        && request.auth.token.email is string
         && request.auth.token.email.lower() == 'sawn6849@gmail.com';
     }
 
+    match /package-covers/{fileName} {
+      allow get: if true;
+      allow list: if isAuthorizedAdmin();
+      allow create, update: if isAuthorizedAdmin()
+        && request.resource != null
+        && request.resource.size < 5 * 1024 * 1024
+        && request.resource.contentType.matches('image/(jpeg|png|webp)');
+      allow delete: if isAuthorizedAdmin();
+    }
+
     match /profile-pictures/{userId}/{fileName} {
-      allow read: if true;
+      allow get: if true;
+      allow list: if request.auth != null && request.auth.uid == userId;
       allow create, update: if request.auth != null
         && request.auth.uid == userId
         && request.resource != null
         && request.resource.size < 5 * 1024 * 1024
         && request.resource.contentType.matches('image/(jpeg|png|webp)');
-      allow delete: if request.auth != null
-        && (
-          request.auth.uid == userId ||
-          (request.auth.token.email_verified == true && request.auth.token.email.lower() == 'sawn6849@gmail.com')
-        );
+      allow delete: if request.auth != null && request.auth.uid == userId;
     }
 
     match /{allPaths=**} {
