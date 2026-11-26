@@ -28,7 +28,9 @@ import {
 import { api } from '../../services/api';
 import {
   AUTHORIZED_ADMIN_EMAIL,
+  applyCachedFirestoreProfile,
   deleteProfilePictureByUrl,
+  hasSyncedFirestoreProfile,
   loadOrSyncUserProfileWithFirestore,
   saveUserProfileToFirestore,
   uploadProfilePicture,
@@ -259,17 +261,30 @@ export const MemberPortal: React.FC<MemberPortalProps> = ({
     setError(null);
     try {
       const data = await api.getMemberOverview();
-      const { profile: mergedUser } = await loadOrSyncUserProfileWithFirestore(data.user);
-      const mergedOverview: MemberOverviewResponse = { ...data, user: mergedUser };
-      setOverview(mergedOverview);
-      onRefreshUser(mergedUser);
-      setProfName(mergedUser.displayName);
-      setProfPhone(mergedUser.phone || '');
-      setProfUpi(mergedUser.upiId || '');
-      if (mergedUser.upiId && !wdUpi) setWdUpi(mergedUser.upiId);
+      const immediateUser = applyCachedFirestoreProfile(data.user);
+      const immediateOverview: MemberOverviewResponse = { ...data, user: immediateUser };
+      setOverview(immediateOverview);
+      onRefreshUser(immediateUser);
+      setProfName(immediateUser.displayName);
+      setProfPhone(immediateUser.phone || '');
+      setProfUpi(immediateUser.upiId || '');
+      if (immediateUser.upiId && !wdUpi) setWdUpi(immediateUser.upiId);
+      setLoading(false);
+
+      if (!hasSyncedFirestoreProfile(data.user.uid)) {
+        void loadOrSyncUserProfileWithFirestore(data.user).then(
+          ({ profile: syncedUser, syncedFromFirestore }) => {
+            if (!syncedFromFirestore) return;
+            setOverview((prev) => (prev ? { ...prev, user: syncedUser } : prev));
+            onRefreshUser(syncedUser);
+            setProfName(syncedUser.displayName);
+            setProfPhone(syncedUser.phone || '');
+            setProfUpi(syncedUser.upiId || '');
+          }
+        );
+      }
     } catch (err: any) {
       setError(err?.message || 'Could not load dashboard data');
-    } finally {
       setLoading(false);
     }
   };

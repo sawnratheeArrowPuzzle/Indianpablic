@@ -338,64 +338,126 @@ export async function deleteProfilePictureByUrl(url: string): Promise<void> {
   }
 }
 
+const firestoreProfileCache = new Map<string, UserProfile>();
+const inFlightProfileSyncs = new Map<
+  string,
+  Promise<{ profile: UserProfile; syncedFromFirestore: boolean }>
+>();
+
+export function applyCachedFirestoreProfile(profile: UserProfile): UserProfile {
+  const cached = firestoreProfileCache.get(profile.uid);
+  if (!cached) return profile;
+  const cachedRemoved = Boolean(cached.photoRemoved);
+  const cachedPhoto = typeof cached.photoURL === 'string' ? cached.photoURL.trim() : '';
+  return {
+    ...profile,
+    displayName: cached.displayName || profile.displayName,
+    phone: cached.phone ?? profile.phone,
+    upiId: cached.upiId ?? profile.upiId,
+    photoURL: cachedRemoved ? '' : cachedPhoto || profile.photoURL || '',
+    photoRemoved: cachedRemoved,
+  };
+}
+
+export function hasSyncedFirestoreProfile(uid: string): boolean {
+  return firestoreProfileCache.has(uid);
+}
+
+export function clearFirestoreProfileCache(uid?: string): void {
+  if (uid) {
+    firestoreProfileCache.delete(uid);
+    inFlightProfileSyncs.delete(uid);
+  } else {
+    firestoreProfileCache.clear();
+    inFlightProfileSyncs.clear();
+  }
+}
+
 export async function loadOrSyncUserProfileWithFirestore(
   profile: UserProfile
 ): Promise<{ profile: UserProfile; syncedFromFirestore: boolean }> {
   if (!auth.currentUser || auth.currentUser.uid !== profile.uid) {
     return { profile, syncedFromFirestore: false };
   }
-  const userRef = doc(db, 'users', profile.uid);
-  try {
-    const snap = await getDoc(userRef);
-    const now = profile.updatedAt || new Date().toISOString();
-    if (!snap.exists()) {
-      await setDoc(userRef, {
-        uid: profile.uid,
-        email: profile.email,
-        displayName: profile.displayName,
-        photoURL: profile.photoURL ?? '',
-        photoRemoved: Boolean(profile.photoRemoved),
-        phone: profile.phone ?? '',
-        role: profile.role,
-        status: profile.status,
-        referralCode: profile.referralCode,
-        referredByUid: profile.referredByUid ?? '',
-        referredByCode: profile.referredByCode ?? '',
-        upiId: profile.upiId ?? '',
-        unlockedPackageIds: profile.unlockedPackageIds ?? [],
-        createdAt: profile.createdAt || now,
-        updatedAt: now,
-      });
-      return { profile, syncedFromFirestore: false };
-    }
 
-    const fsData = snap.data() as Partial<UserProfile>;
-    const fsPhotoRemoved = Boolean(fsData.photoRemoved);
-    const fsPhotoUrl = typeof fsData.photoURL === 'string' ? fsData.photoURL.trim() : '';
-    const merged: UserProfile = {
-      ...profile,
-      displayName:
-        typeof fsData.displayName === 'string' && fsData.displayName.trim()
-          ? fsData.displayName.trim()
-          : profile.displayName,
-      phone: typeof fsData.phone === 'string' ? fsData.phone : profile.phone,
-      upiId: typeof fsData.upiId === 'string' ? fsData.upiId : profile.upiId,
-      photoURL: fsPhotoRemoved ? '' : fsPhotoUrl || profile.photoURL || '',
-      photoRemoved: fsPhotoRemoved,
-    };
-
+  if (firestoreProfileCache.has(profile.uid)) {
+    const merged = applyCachedFirestoreProfile(profile);
     const syncedFromFirestore =
       merged.photoURL !== (profile.photoURL || '') ||
       Boolean(merged.photoRemoved) !== Boolean(profile.photoRemoved) ||
       merged.displayName !== profile.displayName ||
       (merged.phone || '') !== (profile.phone || '') ||
       (merged.upiId || '') !== (profile.upiId || '');
-
     return { profile: merged, syncedFromFirestore };
-  } catch (err) {
-    console.warn('Firestore profile sync skipped:', err instanceof Error ? err.message : err);
-    return { profile, syncedFromFirestore: false };
   }
+
+  const existingFlight = inFlightProfileSyncs.get(profile.uid);
+  if (existingFlight) {
+    return existingFlight;
+  }
+
+  const syncPromise = (async () => {
+    const userRef = doc(db, 'users', profile.uid);
+    try {
+      const snap = await getDoc(userRef);
+      const now = profile.updatedAt || new Date().toISOString();
+      if (!snap.exists()) {
+        await setDoc(userRef, {
+          uid: profile.uid,
+          email: profile.email,
+          displayName: profile.displayName,
+          photoURL: profile.photoURL ?? '',
+          photoRemoved: Boolean(profile.photoRemoved),
+          phone: profile.phone ?? '',
+          role: profile.role,
+          status: profile.status,
+          referralCode: profile.referralCode,
+          referredByUid: profile.referredByUid ?? '',
+          referredByCode: profile.referredByCode ?? '',
+          upiId: profile.upiId ?? '',
+          unlockedPackageIds: profile.unlockedPackageIds ?? [],
+          createdAt: profile.createdAt || now,
+          updatedAt: now,
+        });
+        firestoreProfileCache.set(profile.uid, profile);
+        return { profile, syncedFromFirestore: false };
+      }
+
+      const fsData = snap.data() as Partial<UserProfile>;
+      const fsPhotoRemoved = Boolean(fsData.photoRemoved);
+      const fsPhotoUrl = typeof fsData.photoURL === 'string' ? fsData.photoURL.trim() : '';
+      const merged: UserProfile = {
+        ...profile,
+        displayName:
+          typeof fsData.displayName === 'string' && fsData.displayName.trim()
+            ? fsData.displayName.trim()
+            : profile.displayName,
+        phone: typeof fsData.phone === 'string' ? fsData.phone : profile.phone,
+        upiId: typeof fsData.upiId === 'string' ? fsData.upiId : profile.upiId,
+        photoURL: fsPhotoRemoved ? '' : fsPhotoUrl || profile.photoURL || '',
+        photoRemoved: fsPhotoRemoved,
+      };
+
+      firestoreProfileCache.set(profile.uid, merged);
+
+      const syncedFromFirestore =
+        merged.photoURL !== (profile.photoURL || '') ||
+        Boolean(merged.photoRemoved) !== Boolean(profile.photoRemoved) ||
+        merged.displayName !== profile.displayName ||
+        (merged.phone || '') !== (profile.phone || '') ||
+        (merged.upiId || '') !== (profile.upiId || '');
+
+      return { profile: merged, syncedFromFirestore };
+    } catch (err) {
+      console.warn('Firestore profile sync skipped:', err instanceof Error ? err.message : err);
+      return { profile, syncedFromFirestore: false };
+    } finally {
+      inFlightProfileSyncs.delete(profile.uid);
+    }
+  })();
+
+  inFlightProfileSyncs.set(profile.uid, syncPromise);
+  return syncPromise;
 }
 
 export async function saveUserProfileToFirestore(profile: UserProfile): Promise<void> {
@@ -435,6 +497,7 @@ export async function saveUserProfileToFirestore(profile: UserProfile): Promise<
         updatedAt: now,
       });
     }
+    firestoreProfileCache.set(profile.uid, profile);
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);
     if (message.toLowerCase().includes('permission') || message.toLowerCase().includes('insufficient')) {

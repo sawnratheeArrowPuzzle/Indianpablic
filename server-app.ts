@@ -495,8 +495,18 @@ function withDbLock<T>(fn: (db: SavvvnDatabase) => Promise<T> | T): Promise<T> {
   return result;
 }
 
-// Initialize DB file on boot
+// Initialize DB file on boot and pre-warm Firebase x509 signing certs for fast login verification
 readDb();
+void fetch('https://www.googleapis.com/robot/v1/metadata/x509/securetoken@system.gserviceaccount.com')
+  .then(async (res) => {
+    if (!res.ok) return;
+    const certs = (await res.json()) as Record<string, string>;
+    const cacheControl = res.headers.get('cache-control') || '';
+    const match = cacheControl.match(/max-age=(\d+)/);
+    const ttlMs = match ? Number(match[1]) * 1000 : 3600 * 1000;
+    certsCache = { certs, expiresAt: Date.now() + ttlMs };
+  })
+  .catch(() => undefined);
 
 // --- Cryptographic Firebase ID Token Verification (zero IAM needed) ---
 interface CachedCerts {

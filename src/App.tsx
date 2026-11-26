@@ -4,6 +4,7 @@ import { AlertCircle, X } from 'lucide-react';
 import {
   AUTHORIZED_ADMIN_EMAIL,
   auth,
+  clearFirestoreProfileCache,
   googleProvider,
   loadOrSyncUserProfileWithFirestore,
 } from './lib/firebase';
@@ -108,6 +109,24 @@ export function App() {
     loadCatalog();
   }, [loadCatalog]);
 
+  const syncProfileInBackground = useCallback((profile: UserProfile) => {
+    void loadOrSyncUserProfileWithFirestore(profile).then(
+      ({ profile: mergedProfile, syncedFromFirestore }) => {
+        if (!syncedFromFirestore) return;
+        setUser((prev) => (prev && prev.uid === mergedProfile.uid ? mergedProfile : prev));
+        void api
+          .updateProfile({
+            displayName: mergedProfile.displayName,
+            phone: mergedProfile.phone || '',
+            upiId: mergedProfile.upiId || '',
+            photoURL: mergedProfile.photoURL || '',
+            photoRemoved: Boolean(mergedProfile.photoRemoved),
+          })
+          .catch(() => undefined);
+      }
+    );
+  }, []);
+
   // Register Firebase Auth observer once (uses refs + single-flight deduplication so no duplicate session requests run)
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(
@@ -134,18 +153,8 @@ export function App() {
             savedRef || referralCodeRef.current,
             fbUser
           );
-          const { profile: mergedProfile, syncedFromFirestore } =
-            await loadOrSyncUserProfileWithFirestore(profile);
-          setUser(mergedProfile);
-          if (syncedFromFirestore) {
-            void api.updateProfile({
-              displayName: mergedProfile.displayName,
-              phone: mergedProfile.phone || '',
-              upiId: mergedProfile.upiId || '',
-              photoURL: mergedProfile.photoURL || '',
-              photoRemoved: Boolean(mergedProfile.photoRemoved),
-            });
-          }
+          setUser(profile);
+          syncProfileInBackground(profile);
         } catch (err: any) {
           console.error('Session sync failed:', err);
           setAuthNotice(err?.message || 'Could not verify your account session.');
@@ -158,7 +167,7 @@ export function App() {
     );
 
     return () => unsubscribe();
-  }, []);
+  }, [syncProfileInBackground]);
 
   const navigate = useCallback((nextRoute: PublicRoute) => {
     setRoute(nextRoute);
@@ -198,20 +207,10 @@ export function App() {
           savedRef || referralCodeRef.current,
           credential.user
         );
-        const { profile: mergedProfile, syncedFromFirestore } =
-          await loadOrSyncUserProfileWithFirestore(profile);
-        setUser(mergedProfile);
-        if (syncedFromFirestore) {
-          void api.updateProfile({
-            displayName: mergedProfile.displayName,
-            phone: mergedProfile.phone || '',
-            upiId: mergedProfile.upiId || '',
-            photoURL: mergedProfile.photoURL || '',
-            photoRemoved: Boolean(mergedProfile.photoRemoved),
-          });
-        }
+        setUser(profile);
+        syncProfileInBackground(profile);
 
-        const adminAuthorized = isAuthorizedAdmin(mergedProfile);
+        const adminAuthorized = isAuthorizedAdmin(profile);
 
         if (adminAuthorized && destinationOnSuccess !== 'checkout') {
           navigate('admin');
@@ -250,7 +249,7 @@ export function App() {
         setAuthBusy(false);
       }
     },
-    [navigate]
+    [navigate, syncProfileInBackground]
   );
 
   const handleSelectPackage = useCallback(
@@ -293,6 +292,7 @@ export function App() {
   }, [handleGoogleSignIn, navigate, user]);
 
   const handleLogout = useCallback(async () => {
+    clearFirestoreProfileCache();
     await signOut(auth);
     setUser(null);
     try {
