@@ -1711,7 +1711,7 @@ export const MemberPortal: React.FC<MemberPortalProps> = ({
                           {profBusy && avatarUploadProgress !== null && (
                             <div className="space-y-1">
                               <div className="text-[11px] font-medium text-[#0B1E36]">
-                                Uploading profile picture to Firebase Storage ({avatarUploadProgress}%)...
+                                Uploading profile picture to Cloudinary ({avatarUploadProgress}%)...
                               </div>
                               <div className="w-full max-w-[240px] h-1.5 rounded-full bg-slate-200 overflow-hidden">
                                 <div

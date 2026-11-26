@@ -281,7 +281,7 @@ export const AdminPackagesManager: React.FC<SharedAdminProps> = ({ data, onReloa
         <div>
           <h2 className="font-display text-lg font-bold text-[#0B1E36]">Manage Packages</h2>
           <p className="text-xs text-slate-500 mt-0.5">
-            Upload package covers to Firebase Storage, reorder display position, or hide/enable packages publicly.
+            Upload package covers to Cloudinary, reorder display position, or hide/enable packages publicly.
           </p>
         </div>
         <button
@@ -340,7 +340,7 @@ export const AdminPackagesManager: React.FC<SharedAdminProps> = ({ data, onReloa
                   Package Cover Image (JPG, PNG, WebP · 16:10)
                 </div>
                 <div className="text-[11px] text-slate-500">
-                  Stored securely in Firebase Storage and displayed on public package cards.
+                  Stored securely on Cloudinary and displayed on public package cards.
                 </div>
               </div>
               <div className="flex flex-wrap items-center gap-2">
@@ -382,7 +382,7 @@ export const AdminPackagesManager: React.FC<SharedAdminProps> = ({ data, onReloa
               <div className="aspect-[16/10] max-w-sm rounded-lg border border-slate-200 bg-white px-6 flex flex-col items-center justify-center gap-2.5 text-xs text-slate-600">
                 <div className="w-5 h-5 rounded-full border-2 border-[#0D9488] border-t-transparent animate-spin" />
                 <span className="font-medium text-[#0B1E36]">
-                  Uploading cover to Firebase Storage{uploadProgress !== null ? ` (${uploadProgress}%)` : '...'}
+                  Uploading cover to Cloudinary{uploadProgress !== null ? ` (${uploadProgress}%)` : '...'}
                 </span>
                 <div className="w-full max-w-[220px] h-1.5 rounded-full bg-slate-100 overflow-hidden">
                   <div

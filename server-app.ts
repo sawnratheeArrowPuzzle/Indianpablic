@@ -1122,7 +1122,7 @@ app.patch('/api/me/profile', requireMember, async (req: AuthedRequest, res) => {
           user.photoURL = cleanPhoto;
           user.photoRemoved = Boolean(photoRemoved);
         } else {
-          throw new Error('Profile picture URL must be a valid https:// Firebase Storage URL.');
+          throw new Error('Profile picture URL must be a valid https:// Cloudinary or web URL.');
         }
       } else if (typeof photoRemoved === 'boolean') {
         user.photoRemoved = photoRemoved;
@@ -1137,6 +1137,173 @@ app.patch('/api/me/profile', requireMember, async (req: AuthedRequest, res) => {
     return res.json({ user: updated });
   } catch (err: any) {
     return res.status(400).json({ error: err?.message || 'Profile update failed' });
+  }
+});
+
+function getCloudinaryConfig(): { cloudName: string; apiKey: string; apiSecret: string } {
+  const cloudName = (process.env.CLOUDINARY_CLOUD_NAME || '').trim();
+  const apiKey = (process.env.CLOUDINARY_API_KEY || '').trim();
+  const apiSecret = (process.env.CLOUDINARY_API_SECRET || '').trim();
+  if (!cloudName || !apiKey || !apiSecret) {
+    throw new Error(
+      'Cloudinary credentials are not configured on the server. Add CLOUDINARY_CLOUD_NAME, CLOUDINARY_API_KEY, and CLOUDINARY_API_SECRET in Secrets.'
+    );
+  }
+  return { cloudName, apiKey, apiSecret };
+}
+
+function signCloudinaryParams(
+  params: Record<string, string | number>,
+  apiSecret: string
+): string {
+  const serialized = Object.keys(params)
+    .filter((k) => params[k] !== undefined && params[k] !== '')
+    .sort()
+    .map((k) => `${k}=${params[k]}`)
+    .join('&');
+  return crypto.createHash('sha1').update(`${serialized}${apiSecret}`).digest('hex');
+}
+
+function extractCloudinaryPublicId(imageUrl: string, cloudName: string): string | null {
+  try {
+    const parsed = new URL(imageUrl);
+    if (parsed.protocol !== 'https:' || parsed.hostname.toLowerCase() !== 'res.cloudinary.com') {
+      return null;
+    }
+    const lowerPath = parsed.pathname.toLowerCase();
+    const expectedPrefix = `/${cloudName.toLowerCase()}/image/upload/`;
+    if (!lowerPath.startsWith(expectedPrefix)) {
+      return null;
+    }
+    const restPath = parsed.pathname.slice(expectedPrefix.length);
+    const segments = restPath.split('/').filter(Boolean);
+    const startIdx = segments[0] && /^v\d+$/.test(segments[0]) ? 1 : 0;
+    const rawPublicPath = segments.slice(startIdx).join('/');
+    const publicId = decodeURIComponent(rawPublicPath).replace(/\.[a-zA-Z0-9]+$/, '');
+    return publicId || null;
+  } catch {
+    return null;
+  }
+}
+
+app.post('/api/uploads/profile-signature', requireMember, (req: AuthedRequest, res) => {
+  try {
+    const { cloudName, apiKey, apiSecret } = getCloudinaryConfig();
+    const safeUid = req.currentUser!.uid.replace(/[^a-zA-Z0-9_-]/g, '') || 'user';
+    const folder = `savvvnlab/profile-pictures/${safeUid}`;
+    const publicId = `avatar-${Date.now()}-${crypto.randomBytes(3).toString('hex')}`;
+    const timestamp = Math.floor(Date.now() / 1000);
+
+    const signature = signCloudinaryParams(
+      {
+        folder,
+        public_id: publicId,
+        timestamp,
+      },
+      apiSecret
+    );
+
+    return res.json({
+      cloudName,
+      apiKey,
+      timestamp,
+      signature,
+      folder,
+      publicId,
+    });
+  } catch (err: any) {
+    return res.status(503).json({
+      error: err?.message || 'Unable to initialize profile picture upload.',
+    });
+  }
+});
+
+app.post('/api/admin/uploads/cover-signature', requireAdmin, (req: AuthedRequest, res) => {
+  try {
+    const { cloudName, apiKey, apiSecret } = getCloudinaryConfig();
+    const rawKey = typeof req.body?.packageKey === 'string' ? req.body.packageKey : 'pkg';
+    const safeKey = rawKey.replace(/[^a-zA-Z0-9_-]/g, '').slice(0, 48) || 'pkg';
+    const folder = 'savvvnlab/package-covers';
+    const publicId = `${safeKey}-${Date.now()}-${crypto.randomBytes(3).toString('hex')}`;
+    const timestamp = Math.floor(Date.now() / 1000);
+
+    const signature = signCloudinaryParams(
+      {
+        folder,
+        public_id: publicId,
+        timestamp,
+      },
+      apiSecret
+    );
+
+    return res.json({
+      cloudName,
+      apiKey,
+      timestamp,
+      signature,
+      folder,
+      publicId,
+    });
+  } catch (err: any) {
+    return res.status(503).json({
+      error: err?.message || 'Unable to initialize package cover upload.',
+    });
+  }
+});
+
+app.post('/api/uploads/cloudinary/destroy', requireMember, async (req: AuthedRequest, res) => {
+  try {
+    const imageUrl = typeof req.body?.imageUrl === 'string' ? req.body.imageUrl.trim() : '';
+    if (!imageUrl) {
+      return res.status(400).json({ error: 'imageUrl is required' });
+    }
+
+    const { cloudName, apiKey, apiSecret } = getCloudinaryConfig();
+    const publicId = extractCloudinaryPublicId(imageUrl, cloudName);
+    if (!publicId) {
+      return res.status(400).json({ error: 'Invalid Cloudinary image URL' });
+    }
+
+    const safeUid = req.currentUser!.uid.replace(/[^a-zA-Z0-9_-]/g, '') || 'user';
+    const isOwnProfilePic = publicId.startsWith(`savvvnlab/profile-pictures/${safeUid}/`);
+    const isAdminCover =
+      Boolean(req.authToken?.emailVerified) &&
+      isAuthorizedAdminEmail(req.authToken?.email) &&
+      req.currentUser?.role === 'admin' &&
+      publicId.startsWith('savvvnlab/package-covers/');
+
+    if (!isOwnProfilePic && !isAdminCover) {
+      return res.status(403).json({ error: 'Not authorized to remove this image.' });
+    }
+
+    const timestamp = Math.floor(Date.now() / 1000);
+    const signature = signCloudinaryParams(
+      {
+        public_id: publicId,
+        timestamp,
+      },
+      apiSecret
+    );
+
+    const form = new URLSearchParams();
+    form.set('public_id', publicId);
+    form.set('timestamp', String(timestamp));
+    form.set('api_key', apiKey);
+    form.set('signature', signature);
+
+    const destroyRes = await fetch(
+      `https://api.cloudinary.com/v1_1/${encodeURIComponent(cloudName)}/image/destroy`,
+      {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+        body: form.toString(),
+      }
+    );
+
+    const result = await destroyRes.json().catch(() => ({}));
+    return res.json({ ok: destroyRes.ok, result: result?.result || 'unknown' });
+  } catch (err: any) {
+    return res.status(500).json({ error: err?.message || 'Failed to delete Cloudinary image' });
   }
 });
 
@@ -1943,7 +2110,7 @@ function sanitizeCoverUrl(raw: unknown): string {
   if (trimmed.startsWith('https://') || trimmed.startsWith('http://')) {
     return trimmed;
   }
-  throw new Error('Cover image must be a valid https:// Firebase Storage or web URL');
+  throw new Error('Cover image must be a valid https:// Cloudinary or web URL');
 }
 
 // Admin CRUD: Packages
